@@ -34,14 +34,14 @@
 
 ```sh
 # --profile 填你实际在用的：桌面应用 → desktop；dsh web → web
-dsh plugin --profile desktop add github:<GITHUB_USER>/dsh-pet-custom
-dsh plugin --profile desktop add github:<GITHUB_USER>/dsh-tools-menu
+dsh plugin --profile desktop add github:jdt177/dsh-pet-custom
+dsh plugin --profile desktop add github:jdt177/dsh-tools-menu
 ```
 
 装完**重开 DSH**（`dsh web` 用户重启 `dsh web`）。
 
 > **想让 DSH 里的助手帮你装？** 直接把这两行发给它，或者说
-> "从 `https://github.com/<GITHUB_USER>/dsh-pet-custom` 安装这个插件"。
+> "从 `https://github.com/jdt177/dsh-pet-custom` 安装这个插件"。
 
 ### 依赖说明
 

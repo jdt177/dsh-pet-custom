@@ -17,7 +17,7 @@
     "companionPlugin": {
       "name": "dsh-tools-menu",
       "why": "「工具」菜单是独立插件（DSH 的每个包只能声明一个 dsh.client，无法合并进 dsh-pet）。不装它也能用桌宠，但没有「隐藏/打开」入口，也没法调自动隐藏的开关。",
-      "install": "dsh plugin --profile desktop add github:<GITHUB_USER>/dsh-tools-menu"
+      "install": "dsh plugin --profile desktop add github:jdt177/dsh-tools-menu"
     },
     "keepsVersionOf": "0.3.6"
   },
@@ -33,13 +33,13 @@
     "cordis",
     "react"
   ],
-  "homepage": "https://github.com/<GITHUB_USER>/dsh-pet-custom#readme",
+  "homepage": "https://github.com/jdt177/dsh-pet-custom#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/<GITHUB_USER>/dsh-pet-custom.git"
+    "url": "git+https://github.com/jdt177/dsh-pet-custom.git"
   },
   "bugs": {
-    "url": "https://github.com/<GITHUB_USER>/dsh-pet-custom/issues"
+    "url": "https://github.com/jdt177/dsh-pet-custom/issues"
   },
   "_comment": [
     "=============== dsh-pet 包清单说明 ===============",
