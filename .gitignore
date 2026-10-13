@@ -1,0 +1,15 @@
+# 依赖与构建产物
+node_modules/
+pnpm-lock.yaml
+package-lock.json
+yarn.lock
+
+# 运行时生成
+*.log
+.DS_Store
+Thumbs.db
+.tmp/
+tmp/
+
+# 本地定制补丁工具（不属于发布内容）
+.dsh-pet-custom-backup/
