@@ -265,6 +265,32 @@ function applyDesktopLeaf(leaf) {
   if (window.petBridge) window.petBridge.setDesktopHidden(!d.visible);
 }
 
+/**
+ * 养成系统数值叶子（pets.<id>.feed）：鲸贝/饱食度/心情/等级/今日已喂/待喂礼物的一份摘要。
+ * 悬停 HUD 与「心情→动画权重」都读它——前端本来就 1s 轮询 /state，不必再各发请求。
+ * 注意：这是**纯展示状态**，只更新 sprite 上的快照字段，不触发动画（避免每次 tick 都打断当前动作）。
+ */
+function applyFeedLeaf(petId, leaf) {
+  const d = leaf.data;
+  if (!d || typeof d !== 'object') return;
+  for (const s of sprites) {
+    if (String(s.pet.id) !== String(petId)) continue;
+    s.feedState = d;
+    s.updateFeedHud && s.updateFeedHud(); // 悬停 HUD 正显示时，数值每拍刷新
+    s.updateFeedBadge && s.updateFeedBadge(); // 角标：饱食度<30 / 有待喂礼物 才出现，条件解除即消失
+  }
+}
+
+/** 飘字叶子（pets.<id>.float）：数值变化的瞬间飘一组（喂食/升级/收礼/进鲸贝），不需要常驻 */
+function applyFloatLeaf(petId, leaf) {
+  const d = leaf.data;
+  if (!d || typeof d !== 'object') return;
+  for (const s of sprites) {
+    if (String(s.pet.id) !== String(petId)) continue;
+    s.pushFeedFloat && s.pushFeedFloat(d);
+  }
+}
+
 /** 跑一拍 /state（1s 定时与「前端动作后立刻刷新」共用同一份实现） */
 async function pollStateOnce() {
   try {
@@ -272,6 +298,12 @@ async function pollStateOnce() {
     if (!s) return;
     if (stateBaseline === null) {
       stateBaseline = S.flattenCounters(s); // 首拉：只记基线，不渲染（避免启动/重载时重放旧气泡）
+      // 例外：养成系统的**数值叶子是"当前状态"而非"事件"**（不像 say 那样重放会突兀），
+      // 首拉就直接填一次 —— 否则 helper 刚起时第一次悬停 HUD 会空着并白跑一次 /feed。
+      for (const [petId, leaves] of Object.entries(s.pets ?? {})) {
+        const leaf = leaves && leaves.feed;
+        if (leaf && leaf.data) applyFeedLeaf(petId, leaf);
+      }
       return;
     }
     for (const change of S.takeChanged(s, stateBaseline)) {
@@ -285,6 +317,12 @@ async function pollStateOnce() {
       } else if (change.path.startsWith('pets.') && change.path.endsWith('.anim')) {
         // 点播动画：同样按前缀/后缀切片（counter 每次写入都递增，连点两次也会分发两次）
         applyAnimLeaf(change.path.slice('pets.'.length, -'.anim'.length), change.leaf);
+      } else if (change.path.startsWith('pets.') && change.path.endsWith('.feed')) {
+        // 养成系统数值摘要（HUD / 角标 / 心情权重）；切片同 say/anim，绝不 split('.')
+        applyFeedLeaf(change.path.slice('pets.'.length, -'.feed'.length), change.leaf);
+      } else if (change.path.startsWith('pets.') && change.path.endsWith('.float')) {
+        // 飘字（数值变化瞬间的一组标签）
+        applyFloatLeaf(change.path.slice('pets.'.length, -'.float'.length), change.leaf);
       }
     }
   } catch {

@@ -277,6 +277,31 @@
         "工作状态-原地踱步张望",  // index 3 waiting（approval/asked 等待批准）
         "工作状态-雀跃庆祝",      // index 4 success（turn/end completed 完成）
         "工作状态-垂头叹气冒汗"   // index 5 error（turn/end error/max-tokens 出错/达上限）
+      ],
+      // 进食（养成系统一期）：食物袋里每种食物就是一个**真实存在的进食动画**，
+      // 喂食时点播同名动画；列在这里是让「动作 → 喂食」菜单也能直接点播试看素材。
+      // 与 feed.foods 的 name 一一对应（这里多一个少一个只影响菜单，不影响喂食）。
+      "feed": [
+        "大口吃零食",
+        "偷吃零食被抓住",
+        "吃糖葫芦",
+        "吃冰淇淋融化",
+        "吃早餐",
+        "吃午餐",
+        "吃晚餐",
+        "吃白饭",
+        "吃西瓜",
+        "吃饺子",
+        "吃汤圆",
+        "吃年糕",
+        "吃青团",
+        "吃大闸蟹",
+        "涮火锅",
+        "吃长寿面",
+        "吃腊八粥",
+        "吃重阳糕",
+        "吃粽子",
+        "吃Token"
       ]
     }
   },
@@ -347,5 +372,106 @@
       "正在共享",
       "共享屏幕"
     ]
+  },
+
+  // ===================== 养成系统：鲸贝 / 饱食度 / 心情 / 经验等级（一期） =====================
+  // 闭环：干活烧的 token（inputTokens + outputTokens）→ 鲸贝 🐚 → 买食物 → 手动喂 →
+  //       涨经验（→ 等级 → 解锁大餐/招牌）、涨饱食度、涨心情。
+  // 数值出处：《dsh-pet 食物袋与饥饿条设计.md》§2/§3/§6.5/§7/§8，改本段即改全局默认。
+  // ⚠️ 本段是**整段替换**语义（与 eventsRefreshSec 同）：写了 feed 就整段用自己的，
+  //    缺的子键不会从内置默认补回来——要么整段照抄只改需要的值，要么把同级子键补齐。
+  // ⚠️ 状态不在这里：运行时数据落在 %DSH_HOME%\dsh-pet\pet-state.json（原子写 + 备份轮换）。
+  "feed": {
+    "enabled": true,
+    // 计量口径：workload = inputTokens + outputTokens（推荐：反映真实新增工作量，不受缓存命中率干扰）；
+    //           total    = totalTokens（= input + cacheRead + output，缓存命中多的人会虚高）
+    "usageMetric": "workload",
+    "coin": {
+      "name": "鲸贝",
+      "emoji": "🐚",
+      "rate": 500000,       // 每 N token（口径内）→ 1 鲸贝；实测日均 3690 万 → 约 74 鲸贝/天
+      "max": 999999999      // 余额上限（防溢出，正常永远到不了）
+    },
+    "quota": {
+      "mode": "accumulate",              // 累积（不按天重置）
+      "dailyFeedLimit": 8,               // 每日喂食次数软上限：超出**仍可喂**，只是经验 ×overLimitExpRatio
+      "overLimitExpRatio": 0.5,
+      "repeatDecay": [1, 0.8, 0.6, 0.4], // 同类食物当日第 N 次的经验系数（第 4 次起都用末位）
+      "starterSnacks": 3                 // 新手礼包（份）：首次建立状态时放进「待喂」区，吃掉不花鲸贝
+    },
+    // 四档食物：name 必须是 assets/webm 里**真实存在**的进食动画名（面板按钮与菜单点播都用它）。
+    // tier：snack 零食 / meal 正餐 / feast 大餐（Lv4 解锁）/ signature 招牌（Lv8 解锁）
+    "foods": [
+      { "name": "大口吃零食", "tier": "snack", "price": 1, "exp": 5, "satiety": 8, "cooldownSec": 30 },
+      { "name": "偷吃零食被抓住", "tier": "snack", "price": 1, "exp": 5, "satiety": 8, "cooldownSec": 30 },
+      { "name": "吃糖葫芦", "tier": "snack", "price": 1, "exp": 5, "satiety": 8, "cooldownSec": 30 },
+      { "name": "吃冰淇淋融化", "tier": "snack", "price": 1, "exp": 5, "satiety": 8, "cooldownSec": 30 },
+      { "name": "吃早餐", "tier": "meal", "price": 4, "exp": 25, "satiety": 25, "cooldownSec": 180 },
+      { "name": "吃午餐", "tier": "meal", "price": 4, "exp": 25, "satiety": 25, "cooldownSec": 180 },
+      { "name": "吃晚餐", "tier": "meal", "price": 4, "exp": 25, "satiety": 25, "cooldownSec": 180 },
+      { "name": "吃白饭", "tier": "meal", "price": 4, "exp": 25, "satiety": 25, "cooldownSec": 180 },
+      { "name": "吃西瓜", "tier": "meal", "price": 4, "exp": 25, "satiety": 25, "cooldownSec": 180 },
+      { "name": "吃饺子", "tier": "meal", "price": 4, "exp": 25, "satiety": 25, "cooldownSec": 180 },
+      { "name": "吃汤圆", "tier": "meal", "price": 4, "exp": 25, "satiety": 25, "cooldownSec": 180 },
+      { "name": "吃年糕", "tier": "meal", "price": 4, "exp": 25, "satiety": 25, "cooldownSec": 180 },
+      { "name": "吃青团", "tier": "meal", "price": 4, "exp": 25, "satiety": 25, "cooldownSec": 180 },
+      { "name": "吃大闸蟹", "tier": "feast", "price": 15, "exp": 90, "satiety": 50, "cooldownSec": 600 },
+      { "name": "涮火锅", "tier": "feast", "price": 15, "exp": 90, "satiety": 50, "cooldownSec": 600 },
+      { "name": "吃长寿面", "tier": "feast", "price": 15, "exp": 90, "satiety": 50, "cooldownSec": 600 },
+      { "name": "吃腊八粥", "tier": "feast", "price": 15, "exp": 90, "satiety": 50, "cooldownSec": 600 },
+      { "name": "吃重阳糕", "tier": "feast", "price": 15, "exp": 90, "satiety": 50, "cooldownSec": 600 },
+      { "name": "吃粽子", "tier": "feast", "price": 15, "exp": 90, "satiety": 50, "cooldownSec": 600 },
+      { "name": "吃Token", "tier": "signature", "price": 30, "exp": 120, "satiety": 80, "cooldownSec": 1800 }
+    ],
+    "satiety": {
+      "max": 100,
+      "hoursToEmptyActive": 12,  // 活跃时满 → 空的小时数（≈8.33/h）
+      "idleAfterMin": 30,        // 多久无 DSH 活动算空闲
+      "idleRatio": 0.1,          // 空闲时衰减系数（你不用电脑，它就在睡觉）
+      "workCostPerCoin": 2,      // 每赚到 N 鲸贝 → 饱食度 −1（2 鲸贝 = 100 万 token）
+      "refuseAbove": 95          // ≥ 此值拒绝喂食（给出拒绝表现，不是静默失败）
+    },
+    // 随机送食物：二期启用（一期只读配置、不判定；值照设计 §4.2 先放好）
+    "gift": {
+      "enabled": true,
+      "judgeEveryMin": 30,
+      "chance": 0.06,
+      "hungryBelow": 40,
+      "hungryChance": 0.3,
+      "starvingBelow": 15,
+      "starvingChance": 0.6,
+      "dailyLimit": 3,
+      "autoEatBelow": 30,
+      "tierWeights": { "snack": 50, "meal": 40, "feast": 10 }
+    },
+    // 食物偏好（今天爱吃 / 不太爱吃）：二期做每日轮换；一期固定按普通喂食（+3 心情）
+    "preference": { "rotate": "daily", "lovedExpRatio": 1.5, "dislikedExpRatio": 0.5 },
+    "mood": {
+      "enabled": true,
+      "max": 100,
+      "baseline": 40,            // 永不低于此值 —— 这条是"无负罪感"的关键
+      "feedGain": 3,
+      "lovedFoodGain": 6,
+      "dislikedFoodGain": 1,
+      "petGain": 1,
+      "petDailyLimit": 20,
+      "taskSuccessGain": 2,      // 任务成功（turn/end completed）→ 心情 +2（默认开）
+      "giftGain": 3,
+      "decayAfterHours": 12,     // 多久无互动后才开始衰减
+      "decayPerHour": 1.5,
+      "dndRatio": 0.1
+    },
+    "level": {
+      "baseNeed": 40,            // need(L) = 40 × L^1.4：Lv1→2 只需 40，约 3 周多到 Lv10
+      "exponent": 1.4,
+      "unlocks": { "4": "feast", "8": "signature" },
+      "workEventsExp": { "enabled": false, "turnEndSuccess": 2, "todoWrite": 1 }
+    },
+    "dnd": {                     // 免打扰：夜间 21:30–08:00 + 午休 12:00–13:00 → 衰减 ×0.1
+      "windows": [["21:30", "08:00"], ["12:00", "13:00"]],
+      "decayRatio": 0.1,
+      "giftSuppressed": true,
+      "useSystemState": true
+    }
   }
 }

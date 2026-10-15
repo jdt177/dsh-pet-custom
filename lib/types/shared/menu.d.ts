@@ -8,7 +8,7 @@ export interface MenuLeaf {
      * chat=打开对话弹窗；home=回到初始位置；reload=重载配置（桌面端专属：重启桌面 Helper，
      * 全部桌面宠物窗口按最新配置重建——浏览器端刷新页面即可，不注入此项）。
      * 手动触发均不受 whisperEnabled 影响（该字段只关自动周期轮询） */
-    action?: 'open-harness' | 'show-balance' | 'whisper' | 'chat' | 'home' | 'reload';
+    action?: 'open-harness' | 'show-balance' | 'whisper' | 'chat' | 'feed-bag' | 'home' | 'reload';
 }
 /** 分支：带子菜单的项 */
 export interface MenuBranch {

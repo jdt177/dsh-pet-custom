@@ -151,6 +151,7 @@ window.__dshPetDebug = {
   menuOpen: false,
   chatOpen: false,
   opacityOpen: false,
+  feedBagOpen: false,
   bootAt: Date.now(),
 };
 window.addEventListener('error', (event) => {

@@ -25,6 +25,12 @@ const OPACITY_PERSIST_DEBOUNCE_MS = 600;
 /** 面板上滚轮一格改多少个百分点（比滑块拖拽粗一档，滚几格就能到位） */
 const WHEEL_OPACITY_STEP = 5;
 
+// ---------- 悬停 HUD（养成系统，设计 §14.2 第③层） ----------
+/** 进入宠物命中区后多久显示（避免鼠标划过就闪） */
+const HUD_DELAY_MS = 350;
+/** 移出后多久淡出（避免边缘抖动导致反复闪烁） */
+const HUD_FADE_MS = 200;
+
 // 面板样式沿用对话弹窗那套观感（同一份字体栈/圆角/阴影），两个弹窗看起来是一家的。
 const OPACITY_CSS = [
   '.dsh-pet-opacity{position:fixed;z-index:2147483001;width:196px;max-width:80vw;',
@@ -268,6 +274,17 @@ class PetSprite {
     this.opacityClose = null;
     this.opacityOpen = false;
     this.opacityPersistTimer = null;
+    // 食物袋面板（养成系统一期）：面板句柄 + 穿透守卫状态（见 showFeedBagFromMenu）
+    this.feedBagClose = null;
+    this.feedBagOpen = false;
+    // 养成系统数值摘要（events.js 从 /state 的 pets.<id>.feed 叶子推来）：
+    // 悬停 HUD 与「心情 → 动画权重」都读它；拿不到（老 host / 未启用）就是 null → 全走默认行为。
+    this.feedState = null;
+    this.hud = null;
+    this.hudTimer = null;
+    /** 飘字层与角标（懒创建：没数值变化 / 不需要你行动时它们完全不存在） */
+    this.floatLayer = null;
+    this.badge = null;
     // 自动隐藏配置（主进程拉到配置后推来）：右键菜单要显示
     // 「全屏后自动显示桌宠：开/关」的当前状态——菜单项本身没有勾选态，状态只能写进文案。
     this.autoHideCfg = null;
@@ -345,6 +362,7 @@ class PetSprite {
         // 对话弹窗开着则不恢复——弹窗是窗口内 DOM，鼠标还要回来点输入框（与 menuOpen 同守卫）
         this.closeMenu();
         if (!this.chatOpen) this.setInteractive(false);
+        this.scheduleFeedHud(false); // 光标离开窗口：HUD 立刻走淡出（不然它会一直挂着）
       },
       { signal: ac.signal },
     );
@@ -391,6 +409,12 @@ class PetSprite {
       this.chatClose();
       this.chatClose = null;
     }
+    if (this.feedBagClose) {
+      this.feedBagClose();
+      this.feedBagClose = null;
+    }
+    this.destroyFeedHud();
+    this.destroyFeedOverlays();
     this.closeMenu();
     this.stopThrow();
     this.stopDragFollow();
@@ -624,6 +648,12 @@ class PetSprite {
   }
 
   // 动画链（与浏览器 pickNext 语义一致，纯逻辑在 shared）
+  /** 当前心情（来自 /state 的 pets.<id>.feed 叶子）；拿不到就 undefined → 分类权重走默认 */
+  moodValue() {
+    const v = Number(this.feedState?.mood);
+    return Number.isFinite(v) ? v : undefined;
+  }
+
   playIdle() {
     this.stopMove();
     const { animations, animationWeights } = { animations: this.animations, animationWeights: this.weights };
@@ -631,6 +661,9 @@ class PetSprite {
     // 宠物固定（pets[].fixedEnabled）：掷骰时把「转向 / 移动」两档权重按 0 算（与浏览器同一份
     // 决策）——随机链不再让宠物自己翻朝向或走开。右键菜单点播与 /anim 接口不走这里，不受影响。
     const k = S.rollKind(roll, animationWeights, { fixed: this.pet.fixedEnabled });
+    // 表现偏置 → 分类权重（心情 ≥80 更爱玩耍；饿了更爱小动作；刚吃到最爱更活跃）。
+    // 直接把 feed 叶子当 bias —— 字段名与 moodWeightFactor 读的完全一致（mood / satiety / lovedBoost）。
+    const bias = this.feedState ?? undefined;
     let next;
     if (k === 'idle') {
       next = S.pick(animations.idle, this.anim);
@@ -639,7 +672,7 @@ class PetSprite {
     } else if (k === 'move') {
       const moved = this.tryMove();
       if (moved === false) {
-        const act = S.pickCategoryAction(animations.categories, animations.idle, this.facing, this.anim);
+        const act = S.pickCategoryAction(animations.categories, animations.idle, this.facing, this.anim, bias);
         next = act.name;
       } else if (typeof moved === 'string') {
         next = moved;
@@ -649,7 +682,7 @@ class PetSprite {
         return;
       }
     } else {
-      const act = S.pickCategoryAction(animations.categories, animations.idle, this.facing, this.anim);
+      const act = S.pickCategoryAction(animations.categories, animations.idle, this.facing, this.anim, bias);
       next = act.name;
     }
     this.playOnce(next);
@@ -1157,7 +1190,7 @@ class PetSprite {
    * 位移分不清"拖拽跟手"和"漫游/抛掷"）。所以由渲染端上报，主进程的兜底通道据此闭嘴。
    */
   inputBusy() {
-    return this.dragState.active || this.menuOpen || this.chatOpen || this.opacityOpen;
+    return this.dragState.active || this.menuOpen || this.chatOpen || this.opacityOpen || this.feedBagOpen;
   }
 
   /**
@@ -1189,8 +1222,9 @@ class PetSprite {
     }
     // 右键菜单/对话弹窗/透明度面板开启：整窗保持可交互（悬停菜单项、点输入框、拖滑块都不触发穿透
     // 翻转）；关闭后恢复命中区判定。少一个都会让那个面板"看得见点不着"。
-    if (this.menuOpen || this.chatOpen || this.opacityOpen) {
+    if (this.menuOpen || this.chatOpen || this.opacityOpen || this.feedBagOpen) {
       this.setInteractive(true);
+      this.scheduleFeedHud(false); // 面板/菜单开着时不叠 HUD（免得两层面板打架）
       return;
     }
     const r = this.hitRect;
@@ -1201,7 +1235,10 @@ class PetSprite {
     const wy = Number.isFinite(e.clientY) ? e.clientY : toLocal(e.screenY) - (this.pos.y + VIEW.y - this.margin.t);
     const px = wx - this.margin.l;
     const py = wy - this.margin.t;
-    this.setInteractive(px >= r.x && px <= r.x + r.w && py >= r.y && py <= r.y + r.h);
+    const inside = px >= r.x && px <= r.x + r.w && py >= r.y && py <= r.y + r.h;
+    this.setInteractive(inside);
+    // 悬停 HUD：进命中区 350ms 显示、移出 200ms 淡出（设计 §14.2）
+    this.scheduleFeedHud(inside);
   }
 
   onClick() {
@@ -1264,6 +1301,8 @@ class PetSprite {
     tools.push({ label: '隐藏桌宠', action: 'hide-pet' });
     if (this.pet.balanceEnabled) tools.push({ label: '查看余额', action: 'show-balance' });
     tools.push(
+      // 养成系统主入口（放最前：这是"喂它"的地方，与下面几个互动项同级）
+      { label: '食物袋 🐚', action: 'feed-bag' },
       { label: '碎碎念', action: 'whisper' },
       { label: '对话', action: 'chat' },
       { label: '透明度', action: 'opacity' },
@@ -1316,6 +1355,10 @@ class PetSprite {
     }
     if (leaf.action === 'show-balance') {
       this.showBalanceFromMenu(); // 立即拉余额并展示（无需等 1s 触发轮询，展示路径与周期触发一致）
+      return;
+    }
+    if (leaf.action === 'feed-bag') {
+      this.showFeedBagFromMenu(); // 打开食物袋面板（状态 + 每档食物 [喂]）
       return;
     }
     if (leaf.action === 'whisper') {
@@ -1466,6 +1509,196 @@ class PetSprite {
     window.__dshPetDebug.opacityOpen = true;
     this.syncInputBusy();
     this.setInteractive(true);
+  }
+
+  // 「食物袋」菜单：打开养成系统面板（鲸贝 / 饱食度 / 心情 / 等级 + 四档食物各一个 [喂]）。
+  // 定位与开关语义完全照搬 showOpacityFromMenu（身体命中区右上角起、夹取「窗口 ∩ 工作区」、
+  // 开着再点一次先关旧的）。面板不含任何数值逻辑：能喂与否、扣多少、冷却多久，全由 host 的
+  // GET /feed 判定（同一个 evaluate），面板只展示与转发 → 两端面板天然一致。
+  showFeedBagFromMenu() {
+    if (this.feedBagClose) {
+      this.feedBagClose();
+      this.feedBagClose = null;
+      return; // 已开着：先关旧的
+    }
+    const hr = this.hit.getBoundingClientRect(); // 身体命中区（面板定位源，与气泡/对话同一套）
+    const m = S.mountFeedBagPanel({
+      petId: this.pet.id,
+      baseUrl: BASE + '/feed',
+      x: Math.max(4, hr.right + 6),
+      y: Math.max(4, hr.top + 6),
+      // 命中区下方放不下时面板改为「底边对齐命中区底部」向上生长（面板比命中区高得多，宠物贴底边时尤其需要）
+      yBottom: hr.bottom + 6,
+      // 避让基准 = 身体命中区（外扩 12%/6%）：面板与 HUD 都据此避开宠物（见 panelPetRect）
+      petRect: this.panelPetRect(),
+      clamp: this.visibleClampRect(),
+      onFed: (anim, line) => {
+        // 喂食成功 → 播该食物的进食动画（动画名 = 食物名，20 个进食动画都随包发布）。
+        // 台词不抢气泡槽（气泡由 host 状态叶子驱动），只在面板里显示，避免与碎碎念/工作状态打架。
+        if (anim) {
+          this.stopMove();
+          this.playOnce(anim);
+        }
+        console.info('[dsh-pet] 喂食成功 pet=' + this.pet.id + ' anim=' + anim + (line ? ' line=' + line : ''));
+      },
+      onClose: () => {
+        this.feedBagClose = null;
+        this.feedBagOpen = false;
+        window.__dshPetDebug.feedBagOpen = false;
+        this.syncInputBusy(); // 面板关：交还常规判定（菜单还开着的话仍保持忙）
+        if (!this.menuOpen) this.setInteractive(false); // 面板关了且无菜单：恢复命中区穿透
+      },
+    });
+    this.feedBagClose = m.close;
+    this.feedBagOpen = true; // 穿透守卫：面板期间整窗必须保持可交互，否则 [喂] 按钮点不到
+    window.__dshPetDebug.feedBagOpen = true;
+    this.syncInputBusy();
+    this.setInteractive(true);
+  }
+
+  /**
+   * 宠物避让矩形（窗口局部坐标）= **身体命中区**外扩 12%/6%。
+   * 为什么不用整块 sprite：命中区只占舞台 640×360 的 x:200..440，两侧是透明边，
+   * 按整块 sprite 避让会白白浪费 90+px（实测把食物袋面板压到 162px 宽，状态/按钮全折行）。
+   * hitRect 是 sprite 内坐标 → 加 margin 才是窗口坐标。
+   */
+  panelPetRect() {
+    const h = this.hitRect;
+    return {
+      x: this.margin.l + h.x - h.w * 0.12,
+      y: this.margin.t + h.y - h.h * 0.06,
+      w: h.w * 1.24,
+      h: h.h * 1.12,
+    };
+  }
+
+  // ---- 悬停 HUD（设计 §14.2 第③层：主动悬停＝明确查询意图，此时才给精确数字）----
+  // 停在宠物上 350ms 出现、移开 200ms 淡出；HUD 自身 pointer-events:none（不吃鼠标、保持穿透）。
+  // 数值优先用 feedState（/state 的 pets.<id>.feed 叶子，events.js 推来）；
+  // **叶子没到也要弹**（否则"没数据"就变成"悬停没反应"，用户无从判断）——
+  // 这时先渲染占位值，并立刻自己拉一次 /feed 填上（自愈，见 refreshHudFromFeed）。
+  /** 鼠标进/出命中区 → 排 350ms 显示 / 200ms 淡出的定时器（重复调用会重置：划过不闪） */
+  scheduleFeedHud(inside) {
+    if (this.hudTimer !== null) {
+      window.clearTimeout(this.hudTimer);
+      this.hudTimer = null;
+    }
+    if (inside) {
+      if (this.hud) {
+        this.hud.show();
+        return;
+      }
+      this.hudTimer = window.setTimeout(() => {
+        this.hudTimer = null;
+        this.showFeedHud();
+      }, HUD_DELAY_MS);
+    } else if (this.hud) {
+      this.hudTimer = window.setTimeout(() => {
+        this.hudTimer = null;
+        this.hideFeedHud();
+      }, HUD_FADE_MS);
+    }
+  }
+
+  /** 自己拉一次 /feed 填充 HUD（叶子还没到时的兜底；拉到后也补进 feedState，下次不必再拉） */
+  refreshHudFromFeed() {
+    const url = BASE + '/feed?pet=' + encodeURIComponent(this.pet.id);
+    S.fetchJson(url).then((r) => {
+      const d = r && r.data;
+      if (!d || d.ok !== true) return;
+      if (!this.feedState) this.feedState = d;
+      if (this.hud && this.hud.isOn()) this.hud.render(d);
+      this.updateFeedBadge();
+    }).catch(() => {});
+  }
+
+  showFeedHud() {
+    if (this.hud) return;
+    const hr = this.hit.getBoundingClientRect();
+    this.hud = S.mountFeedHud({
+      x: hr.left,
+      y: hr.top,
+      clamp: this.visibleClampRect(),
+      petRect: this.panelPetRect(),
+    });
+    this.hud.render(this.feedState ?? {});
+    this.hud.show();
+    /** 叶子还没到（host 刚起 / 某次分发丢了）→ 立刻自己拉一次 /feed，别停在占位值上 */
+    if (!this.feedState) this.refreshHudFromFeed();
+  }
+
+  hideFeedHud() {
+    if (!this.hud) return;
+    this.hud.hide(); // 只淡出：DOM 留着复用（pointer-events:none，不吃事件）
+  }
+
+  /** 数值更新时刷新已显示的 HUD（events.js 每次收到新叶子都会调） */
+  updateFeedHud() {
+    if (this.hud && this.hud.isOn()) this.hud.render(this.feedState ?? {});
+  }
+
+  destroyFeedHud() {
+    if (this.hudTimer !== null) {
+      window.clearTimeout(this.hudTimer);
+      this.hudTimer = null;
+    }
+    if (this.hud) {
+      this.hud.destroy();
+      this.hud = null;
+    }
+  }
+
+  // ---- 飘字 + 角标（设计 §14.2 第①②层）----
+  /** 两个覆盖层共用的定位入参：命中区外扩后的避让矩形（与面板/HUD 同一套，不压宠物身体） */
+  feedOverlayOpts() {
+    const hr = this.hit.getBoundingClientRect();
+    return {
+      x: hr.left,
+      y: hr.top,
+      clamp: this.visibleClampRect(),
+      petRect: this.panelPetRect(),
+    };
+  }
+
+  /** ① 飘字：数值变化的瞬间飘一组（宿主写 pets.<id>.float 叶子触发；2.5 秒后自动消失） */
+  pushFeedFloat(data) {
+    if (!data || !Array.isArray(data.items) || data.items.length === 0) return;
+    if (!this.floatLayer) this.floatLayer = S.mountFeedFloat(this.feedOverlayOpts());
+    this.floatLayer.push(data.items, data.kind);
+  }
+
+  /** ② 角标：只在需要你行动时出现（饱食度<30 → 🍚 呼吸闪烁；有待喂礼物 → 🎁），条件解除即消失。
+   *  判据优先用叶子的 hungry/starving；叶子字段缺失（例如数据来自 /feed 兜底）时按饱食度推算。 */
+  updateFeedBadge() {
+    const d = this.feedState;
+    if (!d) {
+      if (this.badge) this.badge.render(null);
+      return;
+    }
+    const sat = Number(d.satiety);
+    const view = {
+      ...d,
+      hungry: d.hungry === true || (Number.isFinite(sat) && sat < 30),
+      starving: d.starving === true || (Number.isFinite(sat) && sat < 15),
+      gifts: Number(d.gifts) || 0,
+    };
+    if (!view.hungry && view.gifts <= 0) {
+      if (this.badge) this.badge.render(null);
+      return;
+    }
+    if (!this.badge) this.badge = S.mountFeedBadge(this.feedOverlayOpts());
+    this.badge.render(view);
+  }
+
+  destroyFeedOverlays() {
+    if (this.floatLayer) {
+      this.floatLayer.destroy();
+      this.floatLayer = null;
+    }
+    if (this.badge) {
+      this.badge.destroy();
+      this.badge = null;
+    }
   }
 
   /** 应用透明度：**只有宠物本体 + 气泡**一起变，操作类 UI（菜单/对话/面板）保持不变。

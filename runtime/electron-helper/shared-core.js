@@ -39,15 +39,42 @@ const nextWorkStatusAnim = (pool, current) => {
 	return pickSlot(slot, current);
 };
 const randomBetween = (min, max) => Math.floor(min + Math.random() * (max - min));
-const pickWeightedCategory = (categories, facing) => {
+/**
+ * 表现偏置 → 分类权重系数（只**改变倾向**，不改池子内容；任何动作都不会被永久抽不到）。
+ * bias 接受两种形状：数字（= 心情，向后兼容）或对象 { mood, satiety, lovedBoost }（= feed 叶子）。
+ *   心情 ≥ 80：玩耍 ×1.5、小动作 ×0.7（设计 §6.5：更容易跳可爱宅舞/轻快摇摆舞）
+ *   心情 40~55：小动作 ×1.4、玩耍 ×0.6（更容易悠闲哼歌/摇扇纳凉/照镜子）
+ *   饱食度 < 30：小动作 ×1.3、玩耍 ×0.7；< 15：×1.5 / ×0.5（设计 §3.2："动作倾向偏安静"）
+ *   吃到今天最爱（lovedBoost）：玩耍 ×1.25、小动作 ×0.85（设计 §6："心情表现更活跃"）
+ * 三组**相乘**叠加：又饿又开心时，两个方向会互相抵消，不会出现极端倾斜。
+ */
+const moodWeightFactor = (categoryId, bias) => {
+	const b = typeof bias === 'number' ? { mood: bias } : bias && typeof bias === 'object' ? bias : {};
+	let f = 1;
+	const mood = Number(b.mood);
+	if (Number.isFinite(mood)) {
+		if (mood >= 80) f *= categoryId === '玩耍' ? 1.5 : categoryId === '小动作' ? 0.7 : 1;
+		else if (mood < 55) f *= categoryId === '小动作' ? 1.4 : categoryId === '玩耍' ? 0.6 : 1;
+	}
+	const sat = Number(b.satiety);
+	if (Number.isFinite(sat)) {
+		if (sat < 15) f *= categoryId === '小动作' ? 1.5 : categoryId === '玩耍' ? 0.5 : 1;
+		else if (sat < 30) f *= categoryId === '小动作' ? 1.3 : categoryId === '玩耍' ? 0.7 : 1;
+	}
+	if (b.lovedBoost === true) f *= categoryId === '玩耍' ? 1.25 : categoryId === '小动作' ? 0.85 : 1;
+	return f;
+};
+const pickWeightedCategory = (categories, facing, bias) => {
 	const cats = categories.filter((c) => c.actions.length > 0);
 	if (!cats.length) return null;
 	const filtered = cats.filter((c) => !(c.noMirror && facing === "right"));
 	const eligible = filtered.length ? filtered : cats;
-	const totalW = eligible.reduce((s, c) => s + c.weight, 0) || 1;
+	/** 只缩放"抽签权重"，类别对象本身不动（c.weight 是配置值，原地改会污染后续调用） */
+	const wOf = (c) => Math.max(0, c.weight * moodWeightFactor(c.id, bias));
+	const totalW = eligible.reduce((s, c) => s + wOf(c), 0) || 1;
 	let t = Math.random() * totalW;
 	for (const c of eligible) {
-		t -= c.weight;
+		t -= wOf(c);
 		if (t <= 0) return c;
 	}
 	return eligible[eligible.length - 1];
@@ -61,8 +88,8 @@ const rollKind = (roll, w, opts) => {
 	if (roll < topEnd) return "move";
 	return "action";
 };
-const pickCategoryAction = (categories, idlePool, facing, current) => {
-	const cat = pickWeightedCategory(categories, facing);
+const pickCategoryAction = (categories, idlePool, facing, current, bias) => {
+	const cat = pickWeightedCategory(categories, facing, bias);
 	if (!cat) return {
 		id: "FALLBACK",
 		name: pick(idlePool, current)
@@ -594,7 +621,8 @@ function frameToToast(frame) {
 const EVENT_LABELS = {
 	balance: "余额档位",
 	whisper: "碎碎念",
-	workStatus: "工作状态"
+	workStatus: "工作状态",
+	feed: "喂食"
 };
 const leaf = (anim) => ({
 	label: anim,
@@ -1525,6 +1553,526 @@ async function postAction(baseUrl, body) {
 		return false;
 	}
 }
+/** 通用 JSON 请求（GET/POST 共用）：网络与解析异常都不抛，收敛成 { ok, status, data } */
+async function fetchJson(url, init) {
+	try {
+		const res = await fetch(url, {
+			cache: "no-store",
+			...init ?? {}
+		});
+		const data = await res.json().catch(() => null);
+		return {
+			ok: res.ok,
+			status: res.status,
+			data
+		};
+	} catch (e) {
+		return {
+			ok: false,
+			status: 0,
+			data: null,
+			error: e instanceof Error ? e.message : String(e)
+		};
+	}
+}
+
+// ---------- 食物袋面板（养成系统一期） ----------
+// 数据全部来自 GET <BASE>/feed（host 用**同一个 evaluate** 判定"能不能喂 + 为什么不能"），
+// 喂食走 POST 同路径。面板只负责展示与转发、自己不算任何数值——两端面板因此天然一致。
+// 尺寸：宽 300、高随窗口余量夹取（列表内部滚动）。桌面窗口余量 = 每边 0.5×宠物尺寸，
+// 实测 348px 宠物时窗口约 696×544，面板放得下；宠物缩到很小时面板随之变窄变矮但不出界。
+const FEED_BAG_CSS = [
+	'.dsh-pet-feed{position:fixed;z-index:2147483002;width:300px;display:flex;flex-direction:column;',
+	'padding:9px 11px 10px;background:rgba(255,255,255,.98);border:1px solid rgba(0,0,0,.12);',
+	'border-radius:10px;box-shadow:0 10px 32px rgba(0,0,0,.22);color:#2b2b2b;font-size:13px;line-height:1.45;',
+	"font-family:'ShangshouSoftCandy','Yuanti SC','YouYuan','幼圆','Comic Sans MS','PingFang SC','Microsoft YaHei',sans-serif;",
+	'user-select:none;overflow:hidden}',
+	'.dsh-pet-feed *{box-sizing:border-box}',
+	'.dsh-pet-feed-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:14px;margin-bottom:3px}',
+	'.dsh-pet-feed-coin{font-weight:600}',
+	'.dsh-pet-feed-lv{color:rgba(43,43,43,.6);font-variant-numeric:tabular-nums;font-size:11px}',
+	'.dsh-pet-feed-row{display:flex;justify-content:space-between;gap:8px;font-variant-numeric:tabular-nums}',
+	'.dsh-pet-feed-bar{color:#4a7cff;letter-spacing:-1px}',
+	'.dsh-pet-feed-hint{color:rgba(43,43,43,.45);font-size:11px;margin:1px 0 5px}',
+	'.dsh-pet-feed-list{overflow-y:auto;min-height:0;border-top:1px solid rgba(0,0,0,.08);padding-top:4px}',
+	'.dsh-pet-feed-group{margin:4px 0 1px;color:rgba(43,43,43,.55);font-size:11px}',
+	'.dsh-pet-feed-item{display:flex;align-items:center;gap:6px;padding:1px 0}',
+	'.dsh-pet-feed-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
+	'.dsh-pet-feed-meta{color:rgba(43,43,43,.5);font-size:11px;flex:none}',
+	'.dsh-pet-feed-btn{flex:none;border:1px solid rgba(74,124,255,.5);background:rgba(74,124,255,.1);',
+	'color:#2b63ff;border-radius:6px;padding:1px 8px;font-size:12px;font-family:inherit;cursor:pointer}',
+	'.dsh-pet-feed-btn:disabled{border-color:rgba(0,0,0,.12);background:transparent;color:rgba(43,43,43,.4);cursor:default}',
+	'.dsh-pet-feed-msg{margin-top:5px;padding-top:4px;border-top:1px solid rgba(0,0,0,.08);',
+	'font-size:12px;white-space:pre-wrap;overflow-wrap:anywhere}',
+	'.dsh-pet-feed-msg.is-err{color:#d94f3d}',
+	// 窄面板（贴宠物侧边余量条，宽约 160）：行内只留「名字 + [喂]」，数值挪进按钮 title
+	'.dsh-pet-feed.is-narrow .dsh-pet-feed-meta{display:none}',
+	'.dsh-pet-feed.is-narrow .dsh-pet-feed-row{font-size:12px}',
+	'.dsh-pet-feed.is-narrow .dsh-pet-feed-head{font-size:13px}',
+	// 不折行：面板宽度有限，标签/按钮一旦换行就断成"饱/食度""喂"两截（实测 162px 时最难看）
+	'.dsh-pet-feed-row>span:first-child{white-space:nowrap}',
+	'.dsh-pet-feed-head>span{white-space:nowrap}',
+	'.dsh-pet-feed-btn{white-space:nowrap;min-width:32px;text-align:center}',
+	'.dsh-pet-feed.is-narrow .dsh-pet-feed-head{flex-direction:column;align-items:flex-start;gap:0}'
+].join('');
+let feedBagCssInjected = false;
+function injectFeedBagCss() {
+	if (feedBagCssInjected || typeof document === 'undefined') return;
+	feedBagCssInjected = true;
+	const tag = document.createElement('style');
+	tag.dataset.plugin = 'dsh-pet';
+	tag.dataset.pluginCss = 'dsh-pet/feedbag';
+	tag.textContent = FEED_BAG_CSS;
+	document.head.appendChild(tag);
+}
+function feedEl(tag, cls, text) {
+	const e = document.createElement(tag);
+	if (cls) e.className = cls;
+	if (text !== void 0 && text !== null) e.textContent = String(text);
+	return e;
+}
+/** ▓▓▓░░ 进度条（槽位固定，避免数字跳动时抖动） */
+function feedBarText(ratio, len) {
+	const n = Math.max(0, Math.min(len, Math.round(ratio * len)));
+	return '▓'.repeat(n) + '░'.repeat(len - n);
+}
+function feedSecText(sec) {
+	const s = Math.max(0, Math.ceil(Number(sec) || 0));
+	if (s < 60) return s + 's';
+	return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+}
+/**
+ * 食物袋面板：状态头（鲸贝 / 等级 / 饱食度 / 心情 / 今日已喂）+ 四档食物列表（每行一个[喂]）
+ * + 待喂礼物标记。不可喂时按钮位改显**原因**（冷却 2:15 / 差 3 鲸贝 / 需 Lv4 / 吃不下啦）。
+ * opts: { petId, x, y, clamp, baseUrl?, onFed?(anim, line), onClose?() }
+ */
+const FEED_PANEL_MIN_SIDE = 140;
+const FEED_PANEL_MIN_STACK = 190;
+function mountFeedBagPanel(opts) {
+	injectFeedBagCss();
+	const petId = opts.petId;
+	const baseUrl = opts.baseUrl ?? '/dsh-pet-7340/feed';
+	const withPet = baseUrl + '?pet=' + encodeURIComponent(petId);
+	const c = opts.clamp && Number.isFinite(opts.clamp.x + opts.clamp.y + opts.clamp.w + opts.clamp.h) ? opts.clamp : {
+		x: 0,
+		y: 0,
+		w: window.innerWidth,
+		h: window.innerHeight
+	};
+	// ---- 摆位预判：先定"贴哪条余量"与宽度（宽度影响换行，必须在建 DOM 前定下来） ----
+	// 宠物矩形（窗口局部坐标，由 sprite 传入：sprite 钉在 margin 处，尺寸 = size × 9/16）。
+	const pet = opts.petRect && Number.isFinite(opts.petRect.x + opts.petRect.y + opts.petRect.w + opts.petRect.h) ? opts.petRect : null;
+	const room = pet ? {
+		right: c.x + c.w - (pet.x + pet.w) - 12,
+		left: pet.x - c.x - 12,
+		above: pet.y - c.y - 12,
+		below: c.y + c.h - (pet.y + pet.h) - 12
+	} : null;
+	let slot = 'overlap';
+	if (room) {
+		if (room.right >= FEED_PANEL_MIN_SIDE) slot = 'right';
+		else if (room.left >= FEED_PANEL_MIN_SIDE) slot = 'left';
+		else if (room.above >= FEED_PANEL_MIN_STACK) slot = 'above';
+		else if (room.below >= FEED_PANEL_MIN_STACK) slot = 'below';
+	}
+	const fullW = Math.max(180, c.w - 8);
+	const panelW = slot === 'right' || slot === 'left' ? Math.min(300, Math.max(FEED_PANEL_MIN_SIDE, room[slot])) : fullW;
+	const panelH = slot === 'above' || slot === 'below' ? Math.min(300, Math.max(FEED_PANEL_MIN_STACK, room[slot])) : Math.max(60, c.h - 8);
+	const narrow = panelW < 200;
+	const root = feedEl('div', 'dsh-pet-feed' + (narrow ? ' is-narrow' : ''));
+	root.style.width = panelW + 'px';
+	root.style.maxWidth = fullW + 'px';
+	root.style.maxHeight = panelH + 'px';
+	const coin = feedEl('span', 'dsh-pet-feed-coin', '…');
+	const lv = feedEl('span', 'dsh-pet-feed-lv', '');
+	const head = feedEl('div', 'dsh-pet-feed-head');
+	head.appendChild(coin);
+	head.appendChild(lv);
+	const satRow = feedEl('div', 'dsh-pet-feed-row');
+	const satLabel = feedEl('span', '', '🍚 饱食度');
+	const satVal = feedEl('span', 'dsh-pet-feed-bar', '');
+	satRow.appendChild(satLabel);
+	satRow.appendChild(satVal);
+	const moodRow = feedEl('div', 'dsh-pet-feed-row');
+	const moodLabel = feedEl('span', '', '😊 心情');
+	const moodVal = feedEl('span', 'dsh-pet-feed-bar', '');
+	moodRow.appendChild(moodLabel);
+	moodRow.appendChild(moodVal);
+	const hint = feedEl('div', 'dsh-pet-feed-hint', '');
+	const list = feedEl('div', 'dsh-pet-feed-list');
+	const msg = feedEl('div', 'dsh-pet-feed-msg', '');
+	root.appendChild(head);
+	root.appendChild(satRow);
+	root.appendChild(moodRow);
+	root.appendChild(hint);
+	root.appendChild(list);
+	root.appendChild(msg);
+	document.body.appendChild(root);
+	// 与气泡/对话/透明度面板同一套夹取规则（#41：只允许在「窗口 ∩ 工作区」内显示）。
+	// ⚠️ 位置必须在**每次内容变化后重算**：面板状态是异步拉回来的，appendChild 那一刻量到的是
+	//    空面板高度，用它定好 top 之后内容再填满，面板就会向下长出夹取矩形
+	//    （实测症状：面板下半截连同提示/消息区被窗口底边裁掉）。
+	//    另外命中区下方放不下时改为「底部对齐命中区底部」向上生长（= 按角落自动选上/下）。
+	/** 最终位置是否盖住宠物（重叠时喂食成功要自动收起面板，保证进食动画看得见） */
+	const overlapping = { v: slot === 'overlap' };
+	const place = () => {
+		const rr = root.getBoundingClientRect();
+		const w = Math.min(rr.width, Math.max(60, c.w - 8));
+		const h = Math.min(rr.height, Math.max(60, panelH));
+		let left;
+		let top;
+		if (pet && slot === 'right') left = pet.x + pet.w + 6;
+		else if (pet && slot === 'left') left = pet.x - w - 6;
+		else left = opts.x;
+		if (pet && (slot === 'above' || slot === 'below')) top = slot === 'above' ? pet.y - h - 6 : pet.y + pet.h + 6;
+		else {
+			top = opts.y;
+			if (opts.yBottom !== void 0 && top + h > c.y + c.h - 4) top = opts.yBottom - h;
+		}
+		root.style.left = Math.max(c.x + 4, Math.min(left, c.x + c.w - w - 4)) + 'px';
+		root.style.top = Math.max(c.y + 4, Math.min(top, c.y + c.h - h - 4)) + 'px';
+		// 夹取可能把面板推回宠物身上：按最终矩形判定"是否真的盖住宠物"（重叠时喂食后自动收起面板）
+		if (pet) {
+			const pr = root.getBoundingClientRect();
+			overlapping.v = !(pr.right <= pet.x || pr.left >= pet.x + pet.w || pr.bottom <= pet.y || pr.top >= pet.y + pet.h);
+		}
+	};
+	place();
+
+	let closed = false;
+	const close = () => {
+		if (closed) return;
+		closed = true;
+		document.removeEventListener('mousedown', onDocDown, true);
+		document.removeEventListener('keydown', onDocKey, true);
+		root.remove();
+		if (opts.onClose) opts.onClose();
+	};
+	const onDocDown = (e) => {
+		if (!closed && !root.contains(e.target)) close();
+	};
+	const onDocKey = (e) => {
+		if (!closed && e.key === 'Escape') close();
+	};
+	document.addEventListener('mousedown', onDocDown, true);
+	document.addEventListener('keydown', onDocKey, true);
+
+	const setMsg = (text, isErr) => {
+		msg.textContent = text;
+		msg.classList.toggle('is-err', !!isErr);
+	};
+	/** 不可喂时按钮位显示的短原因（完整原因放 title） */
+	const shortReason = (f, s) => {
+		if (f.locked) return '需 Lv' + f.unlockLevel;
+		if (f.cooldownLeftSec > 0) return '冷却 ' + feedSecText(f.cooldownLeftSec);
+		if (s.refuseNow) return '吃不下啦';
+		if (!f.gift && s.coin < f.price) return '差 ' + (f.price - s.coin) + ' 鲸贝';
+		return f.reason ? f.reason.slice(0, 8) + '…' : '不可喂';
+	};
+	const render = (s) => {
+		coin.textContent = (s.coinEmoji ?? '🐚') + ' ' + s.coin + ' ' + (s.coinName ?? '鲸贝');
+		lv.textContent = 'Lv.' + s.level + ' · 还需 ' + Math.max(0, s.expNeed - s.exp) + '⭐';
+		const bars = narrow ? 6 : 8;
+		satLabel.textContent = narrow ? '🍚' : '🍚 饱食度';
+		moodLabel.textContent = narrow ? '😊' : '😊 心情';
+		satVal.textContent = feedBarText(s.satiety / s.satietyMax, bars) + ' ' + Math.round(s.satiety) + '/' + s.satietyMax;
+		moodVal.textContent = feedBarText(s.mood / s.moodMax, bars + 1) + ' ' + Math.round(s.mood) + '/' + s.moodMax;
+		const gifts = (s.pendingGifts ?? []).length;
+		/** 今日偏好（设计 §6）：面板顶部写清"今天爱吃/不太爱吃"，食物行上只标 ❤️/🙂 图标不写数值 */
+		const prefLine = s.preference && (s.preference.loved || s.preference.disliked)
+			? ' · ❤️' + (s.preference.loved || '—') + ' 🙂' + (s.preference.disliked || '—')
+			: '';
+		// 窄面板放不下"衰减速度"那串说明：只留喂食前最需要看的一行
+		hint.textContent = narrow
+			? '今日 ' + s.today.fedCount + '/' + s.today.limit + (gifts > 0 ? ' · 🎁 ' + gifts : '')
+			: '活跃时 −' + s.satietyDecayPerHour + '/小时 · 空闲 ×' + s.idleRatio + ' · 今日已喂 ' + s.today.fedCount + '/' + s.today.limit + (gifts > 0 ? ' · 🎁 待喂 ' + gifts + ' 份' : '') + prefLine;
+		list.textContent = '';
+		const order = [];
+		const byTier = /* @__PURE__ */ new Map();
+		for (const f of s.foods ?? []) {
+			if (!byTier.has(f.tier)) {
+				byTier.set(f.tier, []);
+				order.push(f.tier);
+			}
+			byTier.get(f.tier).push(f);
+		}
+		for (const tier of order) {
+			const items = byTier.get(tier);
+			list.appendChild(feedEl('div', 'dsh-pet-feed-group', `${items[0].emoji} ${items[0].tierLabel} · ${items[0].price} ${s.coinName}`));
+			for (const f of items) {
+				const row = feedEl('div', 'dsh-pet-feed-item');
+				// 前缀：🎁 待喂礼物 / ❤️ 今日爱吃（经验 ×1.5）/ 🙂 今日不太爱吃（×0.5，但照样吃、不闹脾气）
+				const mark = f.gift ? '🎁 ' : f.preference === 'loved' ? '❤️ ' : f.preference === 'disliked' ? '🙂 ' : '';
+				row.appendChild(feedEl('span', 'dsh-pet-feed-name', mark + f.name));
+				row.appendChild(feedEl('span', 'dsh-pet-feed-meta', `+${f.expGain}⭐ +${f.satiety}🍚`));
+				const btn = feedEl('button', 'dsh-pet-feed-btn', '喂');
+				btn.type = 'button';
+				// 窄面板隐藏了行内数值：完整信息（原因 + 收益 + 次数 + 价格）都放 title
+				btn.title = (f.reason ? f.reason + ' · ' : '') + `+${f.expGain}⭐ +${f.satiety}🍚` + (f.todayCount > 0 ? ` · 今日 ${f.todayCount} 次` : '') + (f.gift ? '（待喂礼物，不花鲸贝）' : ` · ${f.price}${s.coinName}`);
+				if (f.canFeed) btn.addEventListener('click', () => void doFeed(f.name));
+				else {
+					btn.disabled = true;
+					btn.textContent = shortReason(f, s);
+				}
+				row.appendChild(btn);
+				list.appendChild(row);
+			}
+		}
+		place(); // 内容变化后重算位置：否则填满的面板会伸出夹取矩形（下半截被裁）
+	};
+	let busy = false;
+	const doFeed = async (food) => {
+		if (busy || closed) return;
+		busy = true;
+		setMsg('正在喂「' + food + '」…', false);
+		const r = await fetchJson(baseUrl, {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({
+				petId,
+				food
+			})
+		});
+		busy = false;
+		const d = r.data;
+		if (d && d.ok) {
+			if (opts.onFed) opts.onFed(d.anim, d.line);
+			// 重叠模式（余量条太窄、面板只能压在宠物身上）：喂完立刻收起面板 → 进食动画一定看得见；
+			// 结果同时由 host 写进气泡（feedBubbleText），不会有"刚喂了啥"的信息落差。
+			if (overlapping.v) {
+				close();
+				return;
+			}
+			setMsg([
+				`${d.emoji ?? ''}「${d.food}」` + (d.gift ? '（待喂礼物，不花鲸贝）' : ` −${d.spent}${d.coinEmoji ?? '🐚'}`),
+				`🍚 +${d.satietyGain} → ${Math.round(d.satiety)}`,
+				`⭐ +${d.expGain}${d.expRatio < 1 ? `（×${d.expRatio}）` : ''} → Lv${d.level}${d.levelUp ? ' 升级！' : ''}`,
+				`😊 +${d.moodGain}`
+			].join('　') + (d.line ? '\n' + d.line : ''), false);
+		} else {
+			setMsg('喂食失败：' + (d?.message ?? d?.error ?? 'HTTP ' + r.status), true);
+			// 拒绝也要有表现（设计 §5）：host 在 409 里带了 anim（点击回应-傲娇生气）→ 播出来
+			if (d?.anim && opts.onFed) opts.onFed(d.anim, d.line);
+		}
+		void refresh();
+	};
+	const refresh = async () => {
+		const r = await fetchJson(withPet);
+		if (!r.ok || !r.data || r.data.ok !== true) {
+			setMsg('读取状态失败：' + (r.data?.message ?? r.data?.error ?? 'HTTP ' + r.status), true);
+			return;
+		}
+		render(r.data);
+	};
+	void refresh();
+	return {
+		el: root,
+		close,
+		refresh
+	};
+}
+
+// ---------- 悬停 HUD（设计 §14.2 第③层） ----------
+// 鼠标停在宠物上 350ms 出现、移开 200ms 淡出；**不吃鼠标事件**（pointer-events:none，保持穿透）。
+// 数据来自 /state 的 pets.<id>.feed 叶子（宿主 1s 轮询推来），所以 HUD 自己不请求任何接口。
+// 常驻层依然 0 个数字：不悬停时它完全不存在（opacity 0）。
+const FEED_HUD_CSS = [
+	'.dsh-pet-hud{position:fixed;z-index:2147483003;width:212px;padding:7px 9px 8px;',
+	'background:rgba(255,255,255,.96);border:1px solid rgba(0,0,0,.1);border-radius:9px;',
+	'box-shadow:0 8px 22px rgba(0,0,0,.18);color:#2b2b2b;font-size:12px;line-height:1.45;',
+	"font-family:'ShangshouSoftCandy','Yuanti SC','YouYuan','幼圆','Comic Sans MS','PingFang SC','Microsoft YaHei',sans-serif;",
+	'user-select:none;pointer-events:none;opacity:0;transition:opacity .18s ease}',
+	'.dsh-pet-hud.is-on{opacity:1}',
+	'.dsh-pet-hud *{box-sizing:border-box}',
+	'.dsh-pet-hud-row{display:flex;justify-content:space-between;gap:8px;white-space:nowrap}',
+	'.dsh-pet-hud-bar{color:#4a7cff;letter-spacing:-1px;font-variant-numeric:tabular-nums}',
+	'.dsh-pet-hud-foot{color:rgba(43,43,43,.6);margin-top:1px;white-space:nowrap}'
+].join('');
+let feedHudCssInjected = false;
+function injectFeedHudCss() {
+	if (feedHudCssInjected || typeof document === 'undefined') return;
+	feedHudCssInjected = true;
+	const tag = document.createElement('style');
+	tag.dataset.plugin = 'dsh-pet';
+	tag.dataset.pluginCss = 'dsh-pet/feedhud';
+	tag.textContent = FEED_HUD_CSS;
+	document.head.appendChild(tag);
+}
+/**
+ * 悬停 HUD：4 行（等级进度 / 饱食度 / 心情 / 鲸贝 + 今日已喂）。
+ * 位置优先贴**宠物上方**（HUD 只有 ~76px 高，余量够；绝不压住身体与进食动画），
+ * 上方不够才放下方；水平方向相对宠物居中，最后夹取到「窗口 ∩ 工作区」。
+ * opts: { x, y, clamp, petRect? } → { el, render(d), place(), show(), hide(), destroy(), isOn() }
+ */
+function mountFeedHud(opts) {
+	injectFeedHudCss();
+	const c = opts.clamp && Number.isFinite(opts.clamp.x + opts.clamp.y + opts.clamp.w + opts.clamp.h) ? opts.clamp : {
+		x: 0,
+		y: 0,
+		w: window.innerWidth,
+		h: window.innerHeight
+	};
+	const pet = opts.petRect && Number.isFinite(opts.petRect.x + opts.petRect.y + opts.petRect.w + opts.petRect.h) ? opts.petRect : null;
+	const root = feedEl('div', 'dsh-pet-hud');
+	const rows = {};
+	const mkRow = (key, label) => {
+		const row = feedEl('div', 'dsh-pet-hud-row');
+		row.appendChild(feedEl('span', '', label));
+		const val = feedEl('span', 'dsh-pet-hud-bar', '');
+		row.appendChild(val);
+		root.appendChild(row);
+		rows[key] = val;
+	};
+	mkRow('level', '等级');
+	mkRow('satiety', '🍚 饱食度');
+	mkRow('mood', '😊 心情');
+	const foot = feedEl('div', 'dsh-pet-hud-foot', '');
+	root.appendChild(foot);
+	document.body.appendChild(root);
+	const place = () => {
+		const rr = root.getBoundingClientRect();
+		const w = Math.min(rr.width, Math.max(120, c.w - 8));
+		const h = Math.min(rr.height, Math.max(50, c.h - 8));
+		let left = opts.x;
+		let top = opts.y;
+		if (pet) {
+			top = pet.y - h - 6;
+			if (top < c.y + 4) top = pet.y + pet.h + 6; // 上方放不下才落下方
+			left = pet.x + pet.w / 2 - w / 2; // 相对宠物水平居中
+		}
+		root.style.left = Math.max(c.x + 4, Math.min(left, c.x + c.w - w - 4)) + 'px';
+		root.style.top = Math.max(c.y + 4, Math.min(top, c.y + c.h - h - 4)) + 'px';
+	};
+	const render = (d) => {
+		const s = d && typeof d === 'object' ? d : {};
+		const bars = 6;
+		rows.level.textContent = 'Lv.' + (s.level ?? '?') + ' · 还需 ' + Math.max(0, (s.expNeed ?? 0) - (s.exp ?? 0)) + '⭐';
+		rows.satiety.textContent = feedBarText((s.satiety ?? 0) / (s.satietyMax || 100), bars) + ' ' + Math.round(s.satiety ?? 0) + '/' + (s.satietyMax ?? 100);
+		rows.mood.textContent = feedBarText((s.mood ?? 0) / (s.moodMax || 100), bars) + ' ' + Math.round(s.mood ?? 0) + '/' + (s.moodMax ?? 100);
+		/** 数据可能来自两种形状：feed 叶子（todayFed/dailyLimit/gifts）或 GET /feed（today.fedCount/pendingGifts）
+		 *  —— 两者都必须能读，否则走自愈那次会把"今日已喂"读成 0（实测踩到）。 */
+		const fedToday = Number(s.todayFed ?? s.today?.fedCount ?? 0);
+		const fedLimit = Number(s.dailyLimit ?? s.today?.limit ?? 8);
+		const giftCount = Number(s.gifts ?? (Array.isArray(s.pendingGifts) ? s.pendingGifts.length : 0));
+		foot.textContent = (s.coinEmoji ?? '🐚') + ' ' + (s.coin ?? 0) + ' ' + (s.coinName ?? '鲸贝') + ' · 今日 ' + fedToday + '/' + fedLimit + (giftCount > 0 ? ' · 🎁 ' + giftCount : '');
+		place();
+	};
+	place();
+	return {
+		el: root,
+		render,
+		place,
+		show: () => root.classList.add('is-on'),
+		hide: () => root.classList.remove('is-on'),
+		destroy: () => root.remove(),
+		isOn: () => root.classList.contains('is-on')
+	};
+}
+
+// ---------- 飘字 + 角标（设计 §14.2 第①②层） ----------
+// ① 飘字：喂食/升级/收礼/进鲸贝的**瞬间**飘一组（🍚+25 ⭐+25 🐚−4 Lv.4↑），2.5 秒后自动消失；
+// ② 角标：**只在需要你行动时**出现（饱食度<30 → 🍚 缓慢呼吸；有待喂礼物 → 🎁），条件解除即消失。
+// 两者都 pointer-events:none（不吃鼠标事件），常驻层依然 0 个数字。
+const FEED_OVERLAY_CSS = [
+	'.dsh-pet-float{position:fixed;z-index:2147483004;display:flex;flex-direction:column;align-items:center;gap:3px;pointer-events:none}',
+	'.dsh-pet-float-group{display:flex;gap:5px;align-items:center;animation:dsh-pet-float-up 2.5s ease-out forwards}',
+	'.dsh-pet-float-item{padding:1px 7px;border-radius:999px;background:rgba(255,255,255,.94);',
+	'border:1px solid rgba(0,0,0,.1);box-shadow:0 4px 12px rgba(0,0,0,.16);color:#2b2b2b;font-size:13px;',
+	"font-family:'ShangshouSoftCandy','Yuanti SC','YouYuan','幼圆','Comic Sans MS','PingFang SC','Microsoft YaHei',sans-serif;",
+	'font-variant-numeric:tabular-nums;white-space:nowrap}',
+	'.dsh-pet-float-group.is-levelup .dsh-pet-float-item{background:rgba(255,246,214,.98);',
+	'border-color:rgba(214,160,30,.5);color:#8a5a00;font-weight:600}',
+	'@keyframes dsh-pet-float-up{0%{opacity:0;transform:translateY(8px)}18%{opacity:1;transform:translateY(0)}',
+	'72%{opacity:1;transform:translateY(-14px)}100%{opacity:0;transform:translateY(-30px)}}',
+	'.dsh-pet-badge{position:fixed;z-index:2147483004;display:none;gap:4px;pointer-events:none;',
+	'font-size:20px;line-height:1;filter:drop-shadow(0 2px 4px rgba(0,0,0,.25))}',
+	'.dsh-pet-badge.is-on{display:flex}',
+	'.dsh-pet-badge-item{animation:dsh-pet-badge-breath 2.2s ease-in-out infinite}',
+	'@keyframes dsh-pet-badge-breath{0%,100%{opacity:.45;transform:scale(.94)}50%{opacity:.95;transform:scale(1.06)}}'
+].join('');
+let feedOverlayCssInjected = false;
+function injectFeedOverlayCss() {
+	if (feedOverlayCssInjected || typeof document === 'undefined') return;
+	feedOverlayCssInjected = true;
+	const tag = document.createElement('style');
+	tag.dataset.plugin = 'dsh-pet';
+	tag.dataset.pluginCss = 'dsh-pet/feedoverlay';
+	tag.textContent = FEED_OVERLAY_CSS;
+	document.head.appendChild(tag);
+}
+/** 宠物上方居中的落点（飘字与角标共用）：优先命中区上方，放不下才落下方 */
+function feedOverlayAnchor(opts, el, gap) {
+	const c = opts.clamp && Number.isFinite(opts.clamp.x + opts.clamp.y + opts.clamp.w + opts.clamp.h) ? opts.clamp : {
+		x: 0,
+		y: 0,
+		w: window.innerWidth,
+		h: window.innerHeight
+	};
+	const pet = opts.petRect && Number.isFinite(opts.petRect.x + opts.petRect.y + opts.petRect.w + opts.petRect.h) ? opts.petRect : null;
+	const rr = el.getBoundingClientRect();
+	const w = Math.min(rr.width, Math.max(40, c.w - 8));
+	const h = Math.min(rr.height, Math.max(18, c.h - 8));
+	let left = opts.x;
+	let top = opts.y;
+	if (pet) {
+		left = pet.x + pet.w / 2 - w / 2;
+		top = pet.y - h - gap;
+		if (top < c.y + 4) top = pet.y + pet.h + gap;
+	}
+	el.style.left = Math.max(c.x + 4, Math.min(left, c.x + c.w - w - 4)) + 'px';
+	el.style.top = Math.max(c.y + 4, Math.min(top, c.y + c.h - h - 4)) + 'px';
+}
+/**
+ * 飘字层：常驻时是空的，只在数值变化的瞬间 push 一组（每条自动 2.5 秒后移除）。
+ * opts: { x, y, clamp, petRect? } → { el, push(items, kind), place(), destroy() }
+ */
+function mountFeedFloat(opts) {
+	injectFeedOverlayCss();
+	const root = feedEl('div', 'dsh-pet-float');
+	document.body.appendChild(root);
+	const place = () => feedOverlayAnchor(opts, root, 12);
+	const push = (items, kind) => {
+		const list = Array.isArray(items) ? items.filter((x) => typeof x === 'string' && x) : [];
+		if (list.length === 0) return;
+		const group = feedEl('div', 'dsh-pet-float-group' + (kind === 'levelup' ? ' is-levelup' : ''));
+		for (const item of list) group.appendChild(feedEl('span', 'dsh-pet-float-item', item));
+		root.appendChild(group);
+		place();
+		window.setTimeout(() => group.remove(), 2600);
+	};
+	place();
+	return {
+		el: root,
+		push,
+		place,
+		destroy: () => root.remove()
+	};
+}
+/**
+ * 角标：**只在需要你行动时**出现（饱食度<30 → 🍚 缓慢呼吸闪烁；有待喂礼物 → 🎁），条件解除即消失。
+ * opts: { x, y, clamp, petRect? } → { el, render(data), place(), destroy() }
+ */
+function mountFeedBadge(opts) {
+	injectFeedOverlayCss();
+	const root = feedEl('div', 'dsh-pet-badge');
+	document.body.appendChild(root);
+	const place = () => feedOverlayAnchor(opts, root, 4);
+	const render = (d) => {
+		const s = d && typeof d === 'object' ? d : {};
+		root.textContent = '';
+		if (s.hungry) root.appendChild(feedEl('span', 'dsh-pet-badge-item', s.starving ? '🍚❗' : '🍚'));
+		if ((s.gifts ?? 0) > 0) root.appendChild(feedEl('span', 'dsh-pet-badge-item', '🎁'));
+		root.classList.toggle('is-on', root.childElementCount > 0);
+		if (root.childElementCount > 0) place();
+	};
+	place();
+	return {
+		el: root,
+		render,
+		place,
+		destroy: () => root.remove()
+	};
+}
 
 //#endregion
 exports.ACCEL_GAIN_MAX = ACCEL_GAIN_MAX
@@ -1589,6 +2137,7 @@ exports.createMemeImage = createMemeImage
 exports.decideBalanceNotice = decideBalanceNotice
 exports.distToRectSq = distToRectSq
 exports.estimateReleaseVelocity = estimateReleaseVelocity
+exports.fetchJson = fetchJson
 exports.fetchState = fetchState
 exports.flattenConfigPets = flattenConfigPets
 exports.flattenCounters = flattenCounters
@@ -1603,6 +2152,10 @@ exports.landingSquash = landingSquash
 exports.memeImageUrl = memeImageUrl
 exports.mountChatDialog = mountChatDialog
 exports.mountContextMenu = mountContextMenu
+exports.mountFeedBagPanel = mountFeedBagPanel
+exports.mountFeedBadge = mountFeedBadge
+exports.mountFeedFloat = mountFeedFloat
+exports.mountFeedHud = mountFeedHud
 exports.mountScorePopup = mountScorePopup
 exports.nearestIndex = nearestIndex
 exports.nextWorkStatusAnim = nextWorkStatusAnim
