@@ -1585,6 +1585,9 @@ class PetSprite {
     }
     if (inside) {
       if (this.hud) {
+        // ⚠️ 必须重新 render：HUD 的 DOM 是**复用**的（hide 只淡出、不销毁），只 show() 会把
+        //    "上一次显示时"的旧数值又摆出来（实测：喂食后 Lv/今日已喂停在旧值）。
+        this.hud.render(this.feedState ?? {});
         this.hud.show();
         return;
       }
@@ -1607,7 +1610,7 @@ class PetSprite {
       const d = r && r.data;
       if (!d || d.ok !== true) return;
       if (!this.feedState) this.feedState = d;
-      if (this.hud && this.hud.isOn()) this.hud.render(d);
+      if (this.hud) this.hud.render(d); // 同样不判断 isOn：DOM 复用，隐藏时也刷新
       this.updateFeedBadge();
     }).catch(() => {});
   }
@@ -1632,9 +1635,10 @@ class PetSprite {
     this.hud.hide(); // 只淡出：DOM 留着复用（pointer-events:none，不吃事件）
   }
 
-  /** 数值更新时刷新已显示的 HUD（events.js 每次收到新叶子都会调） */
+  /** 数值更新时刷新 HUD（events.js 每次收到新叶子都会调）。
+   *  **不判断 isOn**：DOM 是复用的，隐藏时也刷新，下次悬停 show() 出来就是最新值。 */
   updateFeedHud() {
-    if (this.hud && this.hud.isOn()) this.hud.render(this.feedState ?? {});
+    if (this.hud) this.hud.render(this.feedState ?? {});
   }
 
   destroyFeedHud() {
