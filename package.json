@@ -1,6 +1,6 @@
 {
   "name": "dsh-pet",
-  "version": "0.3.7-custom.2",
+  "version": "0.3.7-custom.3",
   "description": "【桌面增强定制版】吃白饭的蓝色大肥鱼，赖在 DeepSeek Harness 里不走了。平时爱玩魔方、爱吃各种零食、偶尔打个盹，闲不住就在桌面上溜达两圈，被你拖来甩去也照旧赖着；你忙起来它跟着忙前忙后，也会帮你打理余额钱包，闲下来爱碎碎念，还乐意陪你唠两句。",
   "dshLocalFork": {
     "base": "dsh-pet@0.3.6",
@@ -23,8 +23,8 @@
       "why": "「工具」菜单是独立插件（DSH 的每个包只能声明一个 dsh.client，无法合并进 dsh-pet）。不装它也能用桌宠，但没有「隐藏/打开」入口，也没法调自动隐藏的开关。",
       "install": "dsh plugin --profile desktop add github:jdt177/dsh-tools-menu"
     },
-    "versionNote": "0.3.7-custom.2 > 上游 0.3.6：定制版自持版本号且**不低于官方版** —— 0.3.6-custom.x 在 semver 里小于 0.3.6，会让装了官方版的人一直看到更新提示，所以不再使用 0.3.6-* 前缀。",
-    "keepsVersionOf": "0.3.7-custom.2"
+    "versionNote": "0.3.7-custom.3 > 上游 0.3.6：定制版自持版本号且**不低于官方版** —— 0.3.6-custom.x 在 semver 里小于 0.3.6，会让装了官方版的人一直看到更新提示，所以不再使用 0.3.6-* 前缀。",
+    "keepsVersionOf": "0.3.7-custom.3"
   },
   "icon": "assets/logo.png",
   "keywords": [

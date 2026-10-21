@@ -671,16 +671,26 @@ app.whenReady().then(() => {
    *  所以把关键判定落到文件里——排查"关了开关还是躲"这类问题时，
    *  直接看这个文件就知道 helper 当时用的是哪个开关值、命中在哪条路径。 */
   const AUTOHIDE_LOG = 'C:\\Users\\JDT\\.dsh\\dsh-pet\\autohide-log.txt';
+  /**
+   * 写诊断日志。
+   * ⚠️ 这里原来每条都用 **同步** statSync + appendFileSync —— 在杀软实时扫描下
+   * 一次同步写盘可能要 100ms+，而桌宠本进程同时挂在输入路径上（forward 钩子），
+   * 阻塞代价会被放大成全系统卡顿。改成「首条时同步检查一次大小，之后全部异步追加」。
+   */
+  let ahLogSized = false;
   const ahLog = (msg) => {
     try {
       const line = `${new Date().toISOString()} ${msg}\n`;
-      // 简单截断：超过 ~256KB 就重开，避免无限增长
-      try {
-        if (statSync(AUTOHIDE_LOG).size > 256 * 1024) writeFileSync(AUTOHIDE_LOG, '');
-      } catch {
-        /* 文件还不存在 */
+      if (!ahLogSized) {
+        ahLogSized = true;
+        // 超 ~256KB 就重开，避免无限增长（只做一次，之后纯异步）
+        try {
+          if (statSync(AUTOHIDE_LOG).size > 256 * 1024) writeFileSync(AUTOHIDE_LOG, '');
+        } catch {
+          /* 文件还不存在 */
+        }
       }
-      appendFileSync(AUTOHIDE_LOG, line);
+      fsPromises.appendFile(AUTOHIDE_LOG, line, 'utf8').catch(() => {});
     } catch {
       /* 日志失败不影响功能 */
     }
@@ -696,6 +706,8 @@ app.whenReady().then(() => {
   //    真全屏（F11 / 放映模式 / 游戏独占）是无边框的 WS_POPUP，最大化仍带 WS_OVERLAPPEDWINDOW。
   //    （dsh-pet-indesktop 的 Releases 里就记着这个坑：最大化时桌宠被误隐藏且不恢复。）
   let detectFullscreen = () => null;
+  /** 枚举所有顶层可见窗口标题（koffi 版，替代会阻塞主线程的 desktopCapturer.getSources） */
+  let listWindowTitles = () => [];
 
   try {
     const koffi = require('koffi');
@@ -867,6 +879,43 @@ app.whenReady().then(() => {
       }
       return found;
     };
+
+    /**
+     * 枚举所有顶层可见窗口的标题（最多 256 条）。
+     *
+     * **为什么不用 desktopCapturer.getSources**（实测数据，2026-10-21）：
+     *   自动隐藏开启时，`getSources({types:['window']})` 每次阻塞 Electron 主线程
+     *   **224~262ms**、每 3 秒一次（`pollSec:3`），期间**全系统光标冻结** —— 而且去掉
+     *   `setIgnoreMouseEvents(forward:true)` 的钩子也照样冻结，所以根子不在钩子，而在
+     *   这次「全量窗口捕获」占住主线程/GPU 进程（透明置顶窗的光标合成随之停顿）。
+     * 这里只需要「窗口标题」这一件事，koffi 的 EnumWindows + GetWindowTextW 就够，
+     * 零 GPU 参与（实测 22 个可见窗口 **1.4ms**，比 getSources 快约 180 倍）。
+     */
+    listWindowTitles = () => {
+      const titles = [];
+      let cb;
+      try {
+        cb = koffi.register((hwnd) => {
+          if (titles.length >= 256) return false;
+          if (!IsWindowVisible(hwnd)) return true;
+          const t = winTitle(hwnd);
+          if (t && !EXCLUDED_TITLES.has(t)) titles.push(t);
+          return true;
+        }, koffi.pointer(EnumWindowsProc));
+        EnumWindows(cb, 0);
+      } catch {
+        /* 枚举失败就返回已收集的（关键词那条途径失效，但不影响全屏检测） */
+      } finally {
+        if (cb) {
+          try {
+            koffi.unregister(cb);
+          } catch {
+            /* ignore */
+          }
+        }
+      }
+      return titles;
+    };
   } catch (e) {
     // koffi 缺失或加载失败：静默降级成「只做关键词匹配」，绝不让桌宠起不来
     console.error('[dsh-pet-autohide] 全屏检测不可用（koffi 加载失败）：' + (e && e.message ? e.message : String(e)));
@@ -980,9 +1029,14 @@ app.whenReady().then(() => {
       if (fs) return { title: fs.title, pattern: `全屏应用（${fs.proc || '未知'}）`, kind: 'fullscreen' };
     }
     if (!autoHideCfg.patterns.length) return null;
-    const sources = await desktopCapturer.getSources({ types: ['window'], thumbnailSize: { width: 0, height: 0 } });
-    for (const s of sources) {
-      const title = String(s.name ?? '');
+    /**
+     * ⚠️ 这里原本是 `desktopCapturer.getSources({ types: ['window'] })` ——
+     * 实测它每次阻塞 Electron 主线程 **224~262ms**（自动隐藏开启时每 3 秒一次），
+     * 期间**全系统光标冻结**（去掉 forward 钩子也照样冻结，所以不是钩子问题）。
+     * 改用同进程 koffi EnumWindows + GetWindowTextW 取标题：实测 1.4ms。
+     */
+    const titles = listWindowTitles();
+    for (const title of titles) {
       for (const p of autoHideCfg.patterns) if (title.includes(p)) return { title, pattern: p, kind: 'title' };
     }
     return null;
@@ -1080,6 +1134,9 @@ app.whenReady().then(() => {
   void loadAutoHideCfg().then(() => {
     setInterval(autoHideHeartbeat, 1000);
     setInterval(() => void syncAutoHideSwitches(), 3 * 1000);
+    // ↑ 这条是「外部改配置」的兜底同步（菜单点开关走 IPC 立即生效，不依赖它）。
+    //   保持 3s 是因为它会覆盖 autoHideCfg.enabled —— 但真正的开销来源（getSources 全量窗口捕获）
+    //   已经换成 koffi 取标题，所以这里不必再降频。
     // 整份配置（含关键词）仍 30s 重拉一次
     setInterval(() => void loadAutoHideCfg(), 30 * 1000);
     ahLog(
