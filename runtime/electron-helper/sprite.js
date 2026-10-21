@@ -277,6 +277,8 @@ class PetSprite {
     // 食物袋面板（养成系统一期）：面板句柄 + 穿透守卫状态（见 showFeedBagFromMenu）
     this.feedBagClose = null;
     this.feedBagOpen = false;
+    /** 面板外点击收起的 document 监听（面板打开时装、关闭时卸） */
+    this.feedBagOutside = null;
     // 养成系统数值摘要（events.js 从 /state 的 pets.<id>.feed 叶子推来）：
     // 悬停 HUD 与「心情 → 动画权重」都读它；拿不到（老 host / 未启用）就是 null → 全走默认行为。
     this.feedState = null;
@@ -415,6 +417,7 @@ class PetSprite {
     }
     this.destroyFeedHud();
     this.destroyFeedOverlays();
+    this.removeFeedBagOutsideListener();
     this.closeMenu();
     this.stopThrow();
     this.stopDragFollow();
@@ -1321,6 +1324,7 @@ class PetSprite {
     this.menuOpen = true;
     this.setInteractive(true); // 菜单是窗口内 DOM：悬停期间整窗保持可交互，关闭后恢复命中区穿透
     this.syncInputBusy();
+    this.hideFeedHud(); // 菜单一开就收起 HUD：两者常落在同一块区域，留着会挡菜单项
     window.__dshPetDebug.menuOpen = true;
     const m = S.mountContextMenu({
       tree,
@@ -1515,11 +1519,30 @@ class PetSprite {
   // 定位与开关语义完全照搬 showOpacityFromMenu（身体命中区右上角起、夹取「窗口 ∩ 工作区」、
   // 开着再点一次先关旧的）。面板不含任何数值逻辑：能喂与否、扣多少、冷却多久，全由 host 的
   // GET /feed 判定（同一个 evaluate），面板只展示与转发 → 两端面板天然一致。
-  showFeedBagFromMenu() {
+  /**
+   * 关掉食物袋面板（幂等）。供「面板外点击 / 菜单再点一次」共用。
+   * 真正恢复穿透由面板自己的 onClose 负责（那里会重置 feedBagOpen 并 setInteractive(false)）。
+   */
+  closeFeedBag() {
+    this.removeFeedBagOutsideListener();
     if (this.feedBagClose) {
       this.feedBagClose();
       this.feedBagClose = null;
-      return; // 已开着：先关旧的
+    }
+  }
+
+  /** 卸掉"面板外点击"监听（面板以任何方式关闭时都要调，避免监听残留去误关别的弹窗） */
+  removeFeedBagOutsideListener() {
+    if (this.feedBagOutside) {
+      document.removeEventListener('pointerdown', this.feedBagOutside, true);
+      this.feedBagOutside = null;
+    }
+  }
+
+  showFeedBagFromMenu() {
+    if (this.feedBagClose) {
+      this.closeFeedBag(); // 已开着：先关旧的
+      return;
     }
     const hr = this.hit.getBoundingClientRect(); // 身体命中区（面板定位源，与气泡/对话同一套）
     const m = S.mountFeedBagPanel({
@@ -1542,6 +1565,7 @@ class PetSprite {
         console.info('[dsh-pet] 喂食成功 pet=' + this.pet.id + ' anim=' + anim + (line ? ' line=' + line : ''));
       },
       onClose: () => {
+        this.removeFeedBagOutsideListener(); // 面板以任何方式关闭都要卸监听
         this.feedBagClose = null;
         this.feedBagOpen = false;
         window.__dshPetDebug.feedBagOpen = false;
@@ -1554,6 +1578,23 @@ class PetSprite {
     window.__dshPetDebug.feedBagOpen = true;
     this.syncInputBusy();
     this.setInteractive(true);
+
+    /**
+     * 面板外点击收起（用户诉求：不必非得点回宠物才能关）。
+     * 面板打开期间整窗都可交互（上面 setInteractive(true)），所以「窗口内、面板外」的点击
+     * 都能落到渲染端 —— 捕获阶段 pointerdown 判断：面板内不管、宠物身上不管（那是菜单切换），
+     * 其余位置一律收起。用 pointerdown 而不是 click：面板里按钮自己的 click 不会被误触发。
+     * ⚠️ 只挂渲染端监听，**不碰主进程/窗口样式**（避免再次触发 WS_EX_LAYERED 丢失）。
+     * 窗口之外（屏幕其他区域）的点击收不到，暂不支持。
+     */
+    const panelEl = m.el;
+    this.feedBagOutside = (e) => {
+      const t = e.target;
+      if (t && panelEl && panelEl.contains(t)) return;
+      if (t && this.hit && this.hit.contains(t)) return;
+      this.closeFeedBag();
+    };
+    document.addEventListener('pointerdown', this.feedBagOutside, true);
   }
 
   /**
@@ -1563,12 +1604,18 @@ class PetSprite {
    * hitRect 是 sprite 内坐标 → 加 margin 才是窗口坐标。
    */
   panelPetRect() {
-    const h = this.hitRect;
+    /**
+     * ⚠️ 必须用 `hit.getBoundingClientRect()`（**真实窗口坐标**：已包含 setZoomFactor 的缩放），
+     * 不能用 `hitRect`（渲染端 sprite 内的 CSS 像素）+ margin 拼 —— 滚轮缩放后两者的尺度不再一致：
+     * zoom≠1 时 `margin + csspx` 算出的位置会整体偏左，表现为「宠物放大后 HUD 不在宠物正上方」。
+     * hitRect 仍是命中判定用的内部坐标，这里只负责给面板/HUD 提供窗口坐标。
+     */
+    const r = this.hit.getBoundingClientRect();
     return {
-      x: this.margin.l + h.x - h.w * 0.12,
-      y: this.margin.t + h.y - h.h * 0.06,
-      w: h.w * 1.24,
-      h: h.h * 1.12,
+      x: r.left - r.width * 0.12,
+      y: r.top - r.height * 0.06,
+      w: r.width * 1.24,
+      h: r.height * 1.12,
     };
   }
 
@@ -1585,9 +1632,14 @@ class PetSprite {
     }
     if (inside) {
       if (this.hud) {
-        // ⚠️ 必须重新 render：HUD 的 DOM 是**复用**的（hide 只淡出、不销毁），只 show() 会把
-        //    "上一次显示时"的旧数值又摆出来（实测：喂食后 Lv/今日已喂停在旧值）。
+        // ⚠️ 必须重新 render + place：HUD 的 DOM 是**复用**的（hide 只淡出、不销毁），
+        //    只 show() 会同时留下两个旧状态：
+        //      · 数值是"上一次显示时"的（喂食/升级后错 → 已由 render 修掉）
+        //      · 位置是"上一次显示时"的（宠物走过/被拖过之后错 → 这里补 place）
         this.hud.render(this.feedState ?? {});
+        // ⚠️ 必须带**最新**的宠物矩形/夹取矩形：mountFeedHud 内部只保存创建时的值，
+        //    不传参的话位置永远停在 HUD 创建那一刻（实测 size 256→557 时 left 一直是 231px）
+        this.hud.place(this.panelPetRect(), this.visibleClampRect());
         this.hud.show();
         return;
       }

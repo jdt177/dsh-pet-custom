@@ -1877,7 +1877,9 @@ function mountFeedBagPanel(opts) {
 // 数据来自 /state 的 pets.<id>.feed 叶子（宿主 1s 轮询推来），所以 HUD 自己不请求任何接口。
 // 常驻层依然 0 个数字：不悬停时它完全不存在（opacity 0）。
 const FEED_HUD_CSS = [
-	'.dsh-pet-hud{position:fixed;z-index:2147483003;width:212px;padding:7px 9px 8px;',
+	// HUD 的层级要**低于右键菜单**（菜单 3000 / 对话 3001 / 面板 3002）：
+	// 悬停 HUD 与菜单经常落在同一块区域，HUD 在上面会把菜单项挡住（用户点名反馈）
+	'.dsh-pet-hud{position:fixed;z-index:2147482998;width:212px;padding:7px 9px 8px;',
 	'background:rgba(255,255,255,.96);border:1px solid rgba(0,0,0,.1);border-radius:9px;',
 	'box-shadow:0 8px 22px rgba(0,0,0,.18);color:#2b2b2b;font-size:12px;line-height:1.45;',
 	"font-family:'ShangshouSoftCandy','Yuanti SC','YouYuan','幼圆','Comic Sans MS','PingFang SC','Microsoft YaHei',sans-serif;",
@@ -1929,19 +1931,26 @@ function mountFeedHud(opts) {
 	const foot = feedEl('div', 'dsh-pet-hud-foot', '');
 	root.appendChild(foot);
 	document.body.appendChild(root);
-	const place = () => {
+	/**
+	 * 重新定位。**优先用本次传入的宠物矩形/夹取矩形** —— 调用方每次悬停都要传最新的，
+	 * 否则位置会一直停在 HUD 创建那一刻（实测：size 从 256 调到 557，HUD 的 left 始终是 231px）。
+	 * 不传则退化为创建时的值（向后兼容）。
+	 */
+	const place = (nextPet, nextClamp) => {
+		const usePet = nextPet && Number.isFinite(nextPet.x + nextPet.y + nextPet.w + nextPet.h) ? nextPet : pet;
+		const useC = nextClamp && Number.isFinite(nextClamp.x + nextClamp.y + nextClamp.w + nextClamp.h) ? nextClamp : c;
 		const rr = root.getBoundingClientRect();
-		const w = Math.min(rr.width, Math.max(120, c.w - 8));
-		const h = Math.min(rr.height, Math.max(50, c.h - 8));
+		const w = Math.min(rr.width, Math.max(120, useC.w - 8));
+		const h = Math.min(rr.height, Math.max(50, useC.h - 8));
 		let left = opts.x;
 		let top = opts.y;
-		if (pet) {
-			top = pet.y - h - 6;
-			if (top < c.y + 4) top = pet.y + pet.h + 6; // 上方放不下才落下方
-			left = pet.x + pet.w / 2 - w / 2; // 相对宠物水平居中
+		if (usePet) {
+			top = usePet.y - h - 6;
+			if (top < useC.y + 4) top = usePet.y + usePet.h + 6; // 上方放不下才落下方
+			left = usePet.x + usePet.w / 2 - w / 2; // 相对宠物水平居中
 		}
-		root.style.left = Math.max(c.x + 4, Math.min(left, c.x + c.w - w - 4)) + 'px';
-		root.style.top = Math.max(c.y + 4, Math.min(top, c.y + c.h - h - 4)) + 'px';
+		root.style.left = Math.max(useC.x + 4, Math.min(left, useC.x + useC.w - w - 4)) + 'px';
+		root.style.top = Math.max(useC.y + 4, Math.min(top, useC.y + useC.h - h - 4)) + 'px';
 	};
 	const render = (d) => {
 		const s = d && typeof d === 'object' ? d : {};
