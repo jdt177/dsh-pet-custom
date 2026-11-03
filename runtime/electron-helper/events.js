@@ -291,6 +291,22 @@ function applyFloatLeaf(petId, leaf) {
   }
 }
 
+/**
+ * 单词记忆叶子（pets.<id>.vocab = { enabled, book, pending, due, todayDone, goal, streak }）：
+ * 一份轻量摘要，**纯展示状态** —— 只更新 sprite 上的快照字段（右键菜单「开关：开/关」文案 +
+ * 「有待复习词时点宠物优先开面板」），不触发动画，也不代替面板自己的 HTTP 取题/交卷。
+ * 与 feed 叶子同一语义：这是「当前状态」而非事件，首拉也要填一次（见 pollStateOnce 的首拉分支）。
+ */
+function applyVocabLeaf(petId, leaf) {
+  const d = leaf.data;
+  if (!d || typeof d !== 'object') return;
+  for (const s of sprites) {
+    if (String(s.pet.id) !== String(petId)) continue;
+    s.vocabState = d;
+    s.syncVocabState && s.syncVocabState(d); // 归一化（补默认值/数字），菜单文案与点击入口读它
+  }
+}
+
 /** 跑一拍 /state（1s 定时与「前端动作后立刻刷新」共用同一份实现） */
 async function pollStateOnce() {
   try {
@@ -303,6 +319,9 @@ async function pollStateOnce() {
       for (const [petId, leaves] of Object.entries(s.pets ?? {})) {
         const leaf = leaves && leaves.feed;
         if (leaf && leaf.data) applyFeedLeaf(petId, leaf);
+        // 单词叶子同样是"当前状态"（菜单开关文案 / 点宠物优先开面板）→ 首拉就直接填一次
+        const vocabLeaf = leaves && leaves.vocab;
+        if (vocabLeaf && vocabLeaf.data) applyVocabLeaf(petId, vocabLeaf);
       }
       return;
     }
@@ -323,6 +342,9 @@ async function pollStateOnce() {
       } else if (change.path.startsWith('pets.') && change.path.endsWith('.float')) {
         // 飘字（数值变化瞬间的一组标签）
         applyFloatLeaf(change.path.slice('pets.'.length, -'.float'.length), change.leaf);
+      } else if (change.path.startsWith('pets.') && change.path.endsWith('.vocab')) {
+        // 单词记忆摘要（菜单开关文案 / 有待复习时点宠物优先开面板）；切片同 say/anim/feed，绝不 split('.')
+        applyVocabLeaf(change.path.slice('pets.'.length, -'.vocab'.length), change.leaf);
       }
     }
   } catch {

@@ -1,0 +1,2212 @@
+{
+  "total": 2000,
+  "pendingZh": 0,
+  "byTag": {
+    "molecular": 1578,
+    "oncology": 340,
+    "genetics": 80,
+    "bioinfo": 2
+  },
+  "sample": [
+    {
+      "w": "medication",
+      "ph": "/.medi'keiʃәn/",
+      "pos": "n.",
+      "zh": "药物治疗, 药物处理, 医药 药疗法, 投药法",
+      "freq": 3149,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "therapeutic",
+      "ph": "/.θerә'pju:tik/",
+      "pos": "a.",
+      "zh": "治疗的, 有益于健康的 治疗的， 治疗学的",
+      "freq": 6743,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "healer",
+      "ph": "/'hi:lә/",
+      "pos": "n.",
+      "zh": "医治者, 治疗物 治病者, 医生, 治病术土, 江湖医",
+      "freq": 9478,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "remedial",
+      "ph": "/ri'mi:diәl/",
+      "pos": "a.",
+      "zh": "治疗的, 补救的, 矫正的 治疗的",
+      "freq": 10419,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "dosage",
+      "ph": "/'dәusidʒ/",
+      "pos": "n.",
+      "zh": "剂量, 用量, 配药 剂量",
+      "freq": 12335,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "anatomical",
+      "ph": "/.ænә'tɒmikl/",
+      "pos": "a.",
+      "zh": "解剖的, 解剖学的, 构造上的 解剖学的",
+      "freq": 13594,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "synergy",
+      "ph": "/'sinәdʒi/",
+      "pos": "n.",
+      "zh": "协同作用 协同, 协作, 增效, 协作(指药物)",
+      "freq": 14860,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "physiologist",
+      "ph": "/.fizi'ɒlәdʒist/",
+      "pos": "n.",
+      "zh": "生理学者 生理学家",
+      "freq": 17050,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "omeprazole",
+      "ph": "/əʊ'meprəˌzəʊl/",
+      "pos": "",
+      "zh": "奥美拉唑洛赛克, H2受体拮抗剂, 治疗消化道溃疡。",
+      "freq": 18312,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "topographic",
+      "ph": "/.tɒpә'græfik/",
+      "pos": "a.",
+      "zh": "地形的, 地形学的 局部解剖的, 局部记载的",
+      "freq": 20256,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "medicate",
+      "ph": "/'medikeit/",
+      "pos": "vt.",
+      "zh": "用药治疗 用药治疗, 投药, 加药, 使含药 medicated, medicating, medicates",
+      "freq": 21529,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "asymptomatic",
+      "ph": "/,eisimptә'mætik/",
+      "pos": "a.",
+      "zh": "无症状的 无症状的",
+      "freq": 22868,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "pharmacological",
+      "ph": "/.fɑ:mә'kɒlәʒikl/",
+      "pos": "a.",
+      "zh": "药理学的, 药物学的 药理学的",
+      "freq": 24026,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "applicator",
+      "ph": "/'æplikeitә/",
+      "pos": "",
+      "zh": "声极(超声治疗用)， 敷料器, 涂药器",
+      "freq": 25186,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "barbiturate",
+      "ph": "/bɑ:'bitjurәt/",
+      "pos": "n.",
+      "zh": "巴比土酸盐 巴比妥类药物",
+      "freq": 27346,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "polymorphism",
+      "ph": "/.pɒli'mɒ:fizm/",
+      "pos": "n.",
+      "zh": "多晶形, 多形性, 多型现象 同质多晶， 多态性",
+      "freq": 29473,
+      "tags": [
+        "pro",
+        "genetics"
+      ]
+    },
+    {
+      "w": "prozac",
+      "ph": "/'prәuzæk/",
+      "pos": "n.",
+      "zh": "百忧解（一种治疗精神抑郁的药物）",
+      "freq": 30382,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "igg",
+      "ph": "/i^/",
+      "pos": "",
+      "zh": "免疫球蛋白G（immunoglobulin G）",
+      "freq": 31294,
+      "tags": [
+        "pro",
+        "oncology"
+      ]
+    },
+    {
+      "w": "quackery",
+      "ph": "/'kwækәri/",
+      "pos": "n.",
+      "zh": "骗人的治疗, 招摇撞骗, 骗子的行为 江湖医术",
+      "freq": 31611,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "transfect",
+      "ph": "/træns'fekt,trænz-,trɑ:n-/",
+      "pos": "vt.",
+      "zh": "使转染,使(细胞)感染病毒核酸",
+      "freq": 31817,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "gemm",
+      "ph": "",
+      "pos": "",
+      "zh": "generalized electronic maintenance model 通用电子维护模型， granulocy",
+      "freq": 32054,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "proteomics",
+      "ph": "/p'rəʊti:əʊmɪks/",
+      "pos": "",
+      "zh": "蛋白质组学",
+      "freq": 32332,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "hantavirus",
+      "ph": "",
+      "pos": "",
+      "zh": "汉坦病毒属",
+      "freq": 33373,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "replicator",
+      "ph": "",
+      "pos": "",
+      "zh": "重复符 复制基因",
+      "freq": 34468,
+      "tags": [
+        "pro",
+        "genetics"
+      ]
+    },
+    {
+      "w": "quadruplet",
+      "ph": "/'kwɒdruplit/",
+      "pos": "n.",
+      "zh": "四个构成的一组, 成套的四件, 四胞胎之一 四胎儿",
+      "freq": 35206,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "eukaryote",
+      "ph": "/ju'kæriәut/",
+      "pos": "n.",
+      "zh": "〈生〉真核细胞",
+      "freq": 36073,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "meiosis",
+      "ph": "/mai'әusis/",
+      "pos": "n.",
+      "zh": "成熟分裂, 减数分裂 减数分裂, 成熟分裂",
+      "freq": 37478,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "abolitionism",
+      "ph": "/.æbәu'liʃәnizәm/",
+      "pos": "n.",
+      "zh": "废除主义, 废奴主义 活体解剖禁止论",
+      "freq": 38308,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "translocation",
+      "ph": "/,trænslәu'keiʃәn/",
+      "pos": "n.",
+      "zh": "改变位置, 易位 易位(染色体)",
+      "freq": 39476,
+      "tags": [
+        "pro",
+        "genetics"
+      ]
+    },
+    {
+      "w": "glioblastoma",
+      "ph": "",
+      "pos": "",
+      "zh": "成胶质细胞瘤, 恶性胶质瘤",
+      "freq": 39922,
+      "tags": [
+        "pro",
+        "oncology"
+      ]
+    },
+    {
+      "w": "hepatocellular",
+      "ph": "/,hepәtәu'seljulә/",
+      "pos": "a.",
+      "zh": "肝细胞的 肝细胞的",
+      "freq": 40609,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "myosin",
+      "ph": "/'maiәsin/",
+      "pos": "n.",
+      "zh": "肌浆球蛋白, 肌凝蛋白 肌球蛋白",
+      "freq": 41528,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "polyploid",
+      "ph": "/'pɒliplɒid/",
+      "pos": "n.",
+      "zh": "多倍体生物, 多倍体细胞 多倍体的",
+      "freq": 42722,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "histiocyte",
+      "ph": "/'histiәsait/",
+      "pos": "n.",
+      "zh": "组织细胞",
+      "freq": 43552,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "oligonucleotide",
+      "ph": "/,ɔli^әj'nju:kliәjtaid,-tid,ә,li-/",
+      "pos": "",
+      "zh": "低核苷酸， 低聚核苷酸， 寡核苷酸",
+      "freq": 44170,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "remediable",
+      "ph": "/ri'mi:djәbl/",
+      "pos": "a.",
+      "zh": "可治疗的, 可矫正的, 可补救的 可治疗的",
+      "freq": 45016,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "lytic",
+      "ph": "/'litik/",
+      "pos": "a.",
+      "zh": "溶菌作用的 溶解的， 细胞溶解的， 溶胞的， 溶菌的， 松解的， 分解的",
+      "freq": 45831,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "cellularity",
+      "ph": "/,selju'læriti/",
+      "pos": "n.",
+      "zh": "细胞性, 细胞结构 细胞构成",
+      "freq": 46377,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "allogeneic",
+      "ph": "/,ælә'dʒenik/",
+      "pos": "a.",
+      "zh": "同种异体的, 同种组织移植的 同种异基因的",
+      "freq": 46708,
+      "tags": [
+        "pro",
+        "genetics"
+      ]
+    },
+    {
+      "w": "lapa",
+      "ph": "/'lɑ:pə/",
+      "pos": "",
+      "zh": "[=leukocyte alkaline phosphatase activity]白细胞碱性磷酸酶活性",
+      "freq": 46962,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "aak",
+      "ph": "",
+      "pos": "",
+      "zh": "[=Alloactivated killers]同种（异体）活性的杀伤细胞",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "abetalipoproteinemias",
+      "ph": "/,eibeitə,lipə,prəuti:'ni:miə/",
+      "pos": "n.",
+      "zh": "无β脂蛋白血症 abetalipoproteinemias 是 abetalipoproteinemia 的复数",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "abwehrfermente",
+      "ph": "",
+      "pos": "",
+      "zh": "防护 酶",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "acaryotes",
+      "ph": "",
+      "pos": "",
+      "zh": "无核的, 无核细胞的 acaryotes 是 acaryote 的复数",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "acetoacetyl-CoA",
+      "ph": "",
+      "pos": "",
+      "zh": "乙酰乙酰辅酶A",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "acetyltrypsin",
+      "ph": "",
+      "pos": "",
+      "zh": "乙酰胰蛋白酶",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "achromatolysis",
+      "ph": "",
+      "pos": "",
+      "zh": "非染 质溶解, 胞质皱缩, 原浆分离",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "acidaminuria",
+      "ph": "",
+      "pos": "",
+      "zh": "氨基酸尿",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "acidophils",
+      "ph": "",
+      "pos": "n.",
+      "zh": "嗜酸细胞，嗜酸物 嗜酸生物，嗜酸性球，嗜酸性粒细胞 acidophils 是 acidophil 的复数",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "acrocentrics",
+      "ph": "",
+      "pos": "adj.",
+      "zh": "(acrocentric 的复数) & (染色体)近端着丝(的) acrocentrics 是 acrocentric ",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "genetics"
+      ]
+    },
+    {
+      "w": "actinozyme",
+      "ph": "/æktɪ'nɒzɪm/",
+      "pos": "",
+      "zh": "放线菌酶",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "acyclovirs",
+      "ph": "/ei'saikləu,viə/",
+      "pos": "n.",
+      "zh": "阿昔洛韦（治疗疱疹的药物），无环鸟苷 acyclovirs 是 acyclovir 的复数",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "adamantoblast",
+      "ph": "/,ædә'mæntɔblɑ:st/",
+      "pos": "",
+      "zh": "成釉细胞",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "adeno",
+      "ph": "",
+      "pos": "n.",
+      "zh": "〔医〕腺 腺病毒(adenovirus)，词根腺，腺癌细胞",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "oncology"
+      ]
+    },
+    {
+      "w": "adenogram",
+      "ph": "",
+      "pos": "",
+      "zh": "淋巴结涂片细胞分类计数",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "adenylosuccinase",
+      "ph": "",
+      "pos": "",
+      "zh": "腺苷酸琥珀酸酶， 腺苷酸基琥珀酸裂解酶",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "AdNull",
+      "ph": "",
+      "pos": "",
+      "zh": "腺病毒载体",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "aerosolology",
+      "ph": "",
+      "pos": "",
+      "zh": "气溶胶 学",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "agb",
+      "ph": "",
+      "pos": "",
+      "zh": "抗原抗体试验(antigen-antibody test) 附属齿轮盒(accessory gear box) 渐近巨星",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "oncology"
+      ]
+    },
+    {
+      "w": "agranulocyte",
+      "ph": "/ei'^rænjjlәjsait/",
+      "pos": "n.",
+      "zh": "无颗粒白细胞",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "ahaptoglobinemia",
+      "ph": "",
+      "pos": "",
+      "zh": "缺触珠蛋白血",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "akaryocyte",
+      "ph": "/ei'kæriәusait/",
+      "pos": "",
+      "zh": "无核细胞",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "albumen",
+      "ph": "/'ælbjumin/",
+      "pos": "n.",
+      "zh": "蛋白, 胚乳 卵白， 蛋清蛋白 albumen 是 albuman 的复数",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "albuminocytology",
+      "ph": "",
+      "pos": "",
+      "zh": "白蛋白细胞学",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "albuminorrhea",
+      "ph": "",
+      "pos": "",
+      "zh": "白蛋白溢",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "alcoholize",
+      "ph": "/'ælkәhɒlaiz/",
+      "pos": "vt.",
+      "zh": "使醇化, 用酒精处理 用酒精治疗, 醇化 alcoholized, alcoholizing, alcoholizes",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "aleukemic",
+      "ph": "",
+      "pos": "",
+      "zh": "白细胞缺乏的",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "alexofixagen",
+      "ph": "",
+      "pos": "",
+      "zh": "补体结合抗原",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "oncology"
+      ]
+    },
+    {
+      "w": "alkyltransferase",
+      "ph": "",
+      "pos": "n.",
+      "zh": "烷基转移酶",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "oncology"
+      ]
+    },
+    {
+      "w": "allelomorphs",
+      "ph": "",
+      "pos": "n.",
+      "zh": "等位基因 allelomorphs 是 allelomorph 的复数",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "genetics"
+      ]
+    },
+    {
+      "w": "alloantigens",
+      "ph": "",
+      "pos": "n.",
+      "zh": "(alloantigen 的复数) 同种抗原 alloantigens 是 alloantigen 的复数",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "oncology"
+      ]
+    },
+    {
+      "w": "allotransplants",
+      "ph": "",
+      "pos": "adj.",
+      "zh": "芦荟制的，含芦荟的 异体移植物，芦荟制剂 异基因造血干祖细胞的移植",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "genetics"
+      ]
+    },
+    {
+      "w": "Alpha-Chymotrypsin",
+      "ph": "",
+      "pos": "",
+      "zh": "α-糜蛋白酶",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "alternansucrase",
+      "ph": "",
+      "pos": "",
+      "zh": "交替蔗糖酶",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "amakrine",
+      "ph": "",
+      "pos": "",
+      "zh": "无长突的(神经细胞), 无长突细胞",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "ambocyte",
+      "ph": "",
+      "pos": "",
+      "zh": "变形 细胞,阿米巴样细胞",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "ameloblastomas",
+      "ph": "/,æmələu'blæstəmə/",
+      "pos": "",
+      "zh": "【肿瘤学】成釉细胞瘤",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "oncology"
+      ]
+    },
+    {
+      "w": "amino-acid",
+      "ph": "",
+      "pos": "",
+      "zh": "氨基酸",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "aminoacyl-trnas",
+      "ph": "",
+      "pos": "",
+      "zh": "(aminoacyl-trna 的复数) 氨酰基转移核糖核酸, 氨酰-tRNA,氨酰转移RNA aminoacyl-tr",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "oncology"
+      ]
+    },
+    {
+      "w": "Aminopropyltransferase",
+      "ph": "",
+      "pos": "",
+      "zh": "氨基丙基转移酶",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "oncology"
+      ]
+    },
+    {
+      "w": "amniocyte",
+      "ph": "",
+      "pos": "",
+      "zh": "羊水细胞",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "amphicyte",
+      "ph": "",
+      "pos": "",
+      "zh": "套细胞",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "amphochromatophil",
+      "ph": "",
+      "pos": "",
+      "zh": "两染性的, 两染细胞",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "amyloidopathia",
+      "ph": "",
+      "pos": "",
+      "zh": "淀粉样病, 淀粉样蛋白病",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "amynologic",
+      "ph": "",
+      "pos": "",
+      "zh": "免疫学的",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "oncology"
+      ]
+    },
+    {
+      "w": "anaphylactin",
+      "ph": "/,ænәfi'læktin/",
+      "pos": "n.",
+      "zh": "过敏素(一种抗体)",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "oncology"
+      ]
+    },
+    {
+      "w": "anatomopathological",
+      "ph": "",
+      "pos": "adj.",
+      "zh": "病理解剖学的",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "ancrod",
+      "ph": "/'æŋkrɒd/",
+      "pos": "n.",
+      "zh": "蛇毒去纤维酶 安克洛酶，蛇毒蛋白酶，蛇毒安克洛酶",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "androgonium",
+      "ph": "",
+      "pos": "",
+      "zh": "雄原细胞",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "anerythroregenerative",
+      "ph": "",
+      "pos": "",
+      "zh": "红细胞再生不能的",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "angiohistiocytoma",
+      "ph": "",
+      "pos": "",
+      "zh": "血管组织细胞瘤",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "angiotonase",
+      "ph": "",
+      "pos": "",
+      "zh": "血管紧张肽酶 血管紧张素酶",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "anisoleukocytosis",
+      "ph": "",
+      "pos": "",
+      "zh": "白细胞比率不定",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "anpioderm",
+      "ph": "",
+      "pos": "",
+      "zh": "血管胚层(成血管细胞)",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "anti-DNase",
+      "ph": "",
+      "pos": "",
+      "zh": "抗去氧核糖核酸酶",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "anti-immune",
+      "ph": "",
+      "pos": "",
+      "zh": "抗免疫的",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "oncology"
+      ]
+    },
+    {
+      "w": "anti-neutrophils",
+      "ph": "",
+      "pos": "",
+      "zh": "抗中性白细胞 anti-neutrophils 是 anti-neutrophil 的复数",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "antiamboceptor",
+      "ph": "",
+      "pos": "",
+      "zh": "抗介体, 抗抗体",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "oncology"
+      ]
+    },
+    {
+      "w": "anticancrin",
+      "ph": "",
+      "pos": "",
+      "zh": "抗癌抗体",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "oncology"
+      ]
+    },
+    {
+      "w": "anticynarase",
+      "ph": "",
+      "pos": "",
+      "zh": "抗红蓝花酶",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "antiesterase",
+      "ph": "",
+      "pos": "",
+      "zh": "抗酯酶",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "antigenaemia",
+      "ph": "/ænti:dʒə'ni:mɪə/",
+      "pos": "",
+      "zh": "抗原血症",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "oncology"
+      ]
+    },
+    {
+      "w": "antigranulocyte",
+      "ph": "",
+      "pos": "",
+      "zh": "抗粒细胞的",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "antilactase",
+      "ph": "",
+      "pos": "",
+      "zh": "抗乳糖酶 抗乳糖酶",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "antimitogens",
+      "ph": "",
+      "pos": "",
+      "zh": "抗促细胞分裂剂",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "antinervin",
+      "ph": "",
+      "pos": "",
+      "zh": "安提讷文, 水杨溴乙酰苯胺(神经痛治疗药)",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "antipain",
+      "ph": "/æntɪ'peɪn/",
+      "pos": "n.",
+      "zh": "抗痛素 抗蛋白酶，抗蛋白酶X，抗痛素二盐酸盐",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "antiproteinases",
+      "ph": "",
+      "pos": "",
+      "zh": "抗蛋白酶",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "antireticular-cytotoxin",
+      "ph": "",
+      "pos": "",
+      "zh": "抗网状细胞毒",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "antistrepto-DNase",
+      "ph": "",
+      "pos": "",
+      "zh": "抗链球菌脱氧核糖核酸酶",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "antithromboplastin",
+      "ph": "",
+      "pos": "",
+      "zh": "抗凝血酶致活酶",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "antitumour",
+      "ph": "",
+      "pos": "",
+      "zh": "抗癌的 抗肿瘤的",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "oncology"
+      ]
+    },
+    {
+      "w": "antivivisectionist",
+      "ph": "",
+      "pos": "",
+      "zh": "反对活体解剖者",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "aPKC",
+      "ph": "",
+      "pos": "",
+      "zh": "非典型的蛋白激酶C亚家族",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "apocytium",
+      "ph": "",
+      "pos": "",
+      "zh": "多核细胞",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "apoptogene",
+      "ph": "",
+      "pos": "",
+      "zh": "凋亡基因",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "genetics"
+      ]
+    },
+    {
+      "w": "aprotinins",
+      "ph": "/e'protnɪn; æ'protnɪn/",
+      "pos": "n.",
+      "zh": "抑肽酶 aprotinins 是 aprotinin 的复数",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "arachain",
+      "ph": "/'ærәkain/",
+      "pos": "",
+      "zh": "花生仁蛋白酶",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "Archaeocyto",
+      "ph": "",
+      "pos": "",
+      "zh": "古生殖细胞",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "archigonocyte",
+      "ph": "",
+      "pos": "",
+      "zh": "原始卵胚细胞,原胚细胞",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "argentaffinecell",
+      "ph": "",
+      "pos": "",
+      "zh": "嗜银细胞",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "argyrol",
+      "ph": "/'ɑ:dʒirɒl/",
+      "pos": "n.",
+      "zh": "弱蛋白银 弱蛋白银",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "Artazyme",
+      "ph": "",
+      "pos": "",
+      "zh": "自溶蛋白水解酶制剂",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "arylsulfatase",
+      "ph": "/ærɪl'sʌlfɑ:teɪs/",
+      "pos": "n.",
+      "zh": "芳基硫酸酯酶 芳硫酸酯酶，芳基硫酸酯酶类，细菌产生",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "asidohydrogenase",
+      "ph": "",
+      "pos": "",
+      "zh": "酸脱氢酶",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "aspherinia",
+      "ph": "",
+      "pos": "",
+      "zh": "红细胞减少",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "astrocytes",
+      "ph": "",
+      "pos": "",
+      "zh": "(astrocyte 的复数) 星形 细胞, 蛛形细胞 astrocytes 是 astrocyte 的复数",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "astroglial",
+      "ph": "",
+      "pos": "adj.",
+      "zh": "星形胶质细胞瘤的",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "atmungsferment",
+      "ph": "",
+      "pos": "",
+      "zh": "呼吸酶",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "Aurora-A",
+      "ph": "",
+      "pos": "",
+      "zh": "有丝分裂酶A",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "autocytolysin",
+      "ph": "/,ɔ:tәusai'tɔlisin/",
+      "pos": "",
+      "zh": "(=autolysin)细胞自溶素",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "autokinase",
+      "ph": "/ɔ:təʊkɪ'neɪz/",
+      "pos": "",
+      "zh": "自身激酶",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "autopsia",
+      "ph": "",
+      "pos": "",
+      "zh": "尸体解剖, 尸体剖检",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "auxesis",
+      "ph": "/ɔ:k'si:sis/",
+      "pos": "n.",
+      "zh": "细胞增大性生长",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "Avazyme",
+      "ph": "",
+      "pos": "",
+      "zh": "糜蛋白酶,α-糜蛋白酶,α-胰凝乳酶,胰凝乳蛋白酶",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "azacitidine",
+      "ph": "",
+      "pos": "",
+      "zh": "阿扎胞苷， 氮胞苷",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "azurophils",
+      "ph": "",
+      "pos": "",
+      "zh": "嗜苯胺蓝的, 嗜苯胺蓝体, 嗜苯胺蓝细胞 azurophils 是 azurophil 的复数",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "B-SAg",
+      "ph": "",
+      "pos": "",
+      "zh": "B细胞超抗原",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "oncology"
+      ]
+    },
+    {
+      "w": "back-packs",
+      "ph": "",
+      "pos": "",
+      "zh": "(back-pack 的复数) （默克公司）单剂量包装 back-packs 是 back-pack 的复数",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "bacterio-opsin",
+      "ph": "",
+      "pos": "",
+      "zh": "细菌视蛋白",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "bacteriopathology",
+      "ph": "",
+      "pos": "",
+      "zh": "细菌病理学",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "bacteriosis",
+      "ph": "/bæktiәri'әusis/",
+      "pos": "n.",
+      "zh": "细菌病害 细菌病",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "bacterization",
+      "ph": "/,bæktәrai'zeiʃәn; -ri'z-/",
+      "pos": "n.",
+      "zh": "借细菌作用治疗或改变",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "Baeteriaceae",
+      "ph": "",
+      "pos": "",
+      "zh": "杆菌科",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "barstar",
+      "ph": "/bɑ:s'tɑ:/",
+      "pos": "",
+      "zh": "芽孢杆菌RNA酶抑制剂[见于解淀粉芽孢杆菌]",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "basicytoparaplastin",
+      "ph": "",
+      "pos": "",
+      "zh": "嗜硷胞浆网质",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "basoeryrhrocyte",
+      "ph": "",
+      "pos": "",
+      "zh": "嗜碱粒细胞",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "basophilias",
+      "ph": "/,besə'fɪliə; ,bezə'fɪliə/",
+      "pos": "n.",
+      "zh": "嗜碱性， 嗜碱细胞增多 basophilias 是 basophilia 的复数",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "Baytet",
+      "ph": "",
+      "pos": "",
+      "zh": "破伤风免疫球蛋白制剂",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "oncology"
+      ]
+    },
+    {
+      "w": "benase",
+      "ph": "",
+      "pos": "",
+      "zh": "木瓜蛋白酶",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "bestain",
+      "ph": "",
+      "pos": "",
+      "zh": "贝他茵[小分子免疫疫苗增效剂]",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "oncology"
+      ]
+    },
+    {
+      "w": "beta-cell",
+      "ph": "",
+      "pos": "n.",
+      "zh": "β-纤维素 贝他细胞，胰脏贝它细胞",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "betaherpesvirus",
+      "ph": "",
+      "pos": "",
+      "zh": "牛巨细胞病毒 疱疹病毒",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "Biloric",
+      "ph": "",
+      "pos": "",
+      "zh": "胃蛋白酶和牛胆汁胶囊",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "biocytology",
+      "ph": "",
+      "pos": "",
+      "zh": "生物细胞学",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "bionomy",
+      "ph": "/bai'ɒnәmi/",
+      "pos": "n.",
+      "zh": "生理学, 生态学 生命学",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "biostrategic",
+      "ph": "/,baiәustrә'ti:dʒik/",
+      "pos": "",
+      "zh": "对动物细菌病害用抗菌素疗法的",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "bjp",
+      "ph": "",
+      "pos": "",
+      "zh": "[=Bence Jones protein]本周（氏）蛋白，凝溶蛋白",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "blastocyte",
+      "ph": "/'blæstәsait/",
+      "pos": "",
+      "zh": "胚球, 胚细胞, 芽胞",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "blastomatosis",
+      "ph": "",
+      "pos": "",
+      "zh": "胚细胞瘤形成",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "blightest",
+      "ph": "/blaɪt/",
+      "pos": "n.",
+      "zh": "招致植物死亡、枯萎或阻碍其生长的原因(或气候或土壤)的条件 【植物病理学】 (植物的)枯萎病，疫病(如锈病，霉病，黑穗病",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "bodoes",
+      "ph": "",
+      "pos": "",
+      "zh": "波陀虫属, 胞滴虫属 bodoes 是 bodo 的复数",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "brachionectin",
+      "ph": "/breɪtʃə'nektɪn/",
+      "pos": "",
+      "zh": "臂粘连蛋白",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "breakage-fusion",
+      "ph": "",
+      "pos": "",
+      "zh": "(染色体)继裂—融合",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "genetics"
+      ]
+    },
+    {
+      "w": "bromelin",
+      "ph": "/'brәjmәlin/",
+      "pos": "n.",
+      "zh": "菠萝蛋白酶",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "bryocyte",
+      "ph": "",
+      "pos": "",
+      "zh": "增生细胞，增生体",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "bursacyte",
+      "ph": "",
+      "pos": "",
+      "zh": "囊细胞",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "c-myc",
+      "ph": "/'si:m'ɪk/",
+      "pos": "",
+      "zh": "原癌基因",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "oncology"
+      ]
+    },
+    {
+      "w": "cacophthalmia",
+      "ph": "",
+      "pos": "",
+      "zh": "恶性眼病",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "oncology"
+      ]
+    },
+    {
+      "w": "Calb",
+      "ph": "",
+      "pos": "",
+      "zh": "白蛋白廓清率",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "callidin",
+      "ph": "",
+      "pos": "",
+      "zh": "卡里定(有两种:~I缓激肽,~II赖氨酸缓激肽)",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "calspermin",
+      "ph": "/kəlspə'mɪn/",
+      "pos": "",
+      "zh": "钙精蛋白[睾丸的一种钙调蛋白结合蛋白]",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "canavaline",
+      "ph": "",
+      "pos": "",
+      "zh": "刀豆球蛋白",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "cancericidal",
+      "ph": "",
+      "pos": "",
+      "zh": "灭癌的",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "oncology"
+      ]
+    },
+    {
+      "w": "cancerometastasis",
+      "ph": "",
+      "pos": "",
+      "zh": "癌转移",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "oncology"
+      ]
+    },
+    {
+      "w": "capsomers",
+      "ph": "/kæp'sɒməz/",
+      "pos": "",
+      "zh": "病毒壳微体",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "carboxycytochrome",
+      "ph": "",
+      "pos": "",
+      "zh": "羧基细胞色素",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "carboxypolypeptidase",
+      "ph": "",
+      "pos": "",
+      "zh": "羧基多肽酶 羧基多肽酶",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "carcinogenecity",
+      "ph": "",
+      "pos": "",
+      "zh": "致癌性",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "oncology"
+      ]
+    },
+    {
+      "w": "carcinoma-in-situ",
+      "ph": "/kɑ:sɪ'nəʊmə'ɪns'ɪtju:/",
+      "pos": "",
+      "zh": "原位癌",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "oncology"
+      ]
+    },
+    {
+      "w": "carcinopolypus",
+      "ph": "",
+      "pos": "",
+      "zh": "癌性息肉",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "oncology"
+      ]
+    },
+    {
+      "w": "cardiopathology",
+      "ph": "",
+      "pos": "",
+      "zh": "心脏病理学",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "Carpophthora",
+      "ph": "",
+      "pos": "",
+      "zh": "毁果病毒属",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "caryophag",
+      "ph": "",
+      "pos": "",
+      "zh": "嗜核细胞, 嗜核体",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "caseidin",
+      "ph": "/kei'si:idin/",
+      "pos": "n.",
+      "zh": "酪蛋白免疫素",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "oncology"
+      ]
+    },
+    {
+      "w": "caspase",
+      "ph": "/'kæspəz/",
+      "pos": "",
+      "zh": "半胱天冬酶",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "cataplastic",
+      "ph": "/-'plæstik/",
+      "pos": "a.",
+      "zh": "细胞或组织萎缩的",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "caveola",
+      "ph": "/kæ'vɪələ/",
+      "pos": "n.",
+      "zh": "小凹，小腔，质膜穴样内陷，细胞膜穴样内陷 小窝蛋白",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "ccrp",
+      "ph": "",
+      "pos": "",
+      "zh": "C4 ISR Cooperative Research Program 指挥， 控制， 通信， cell-associa",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "cell-baseds",
+      "ph": "",
+      "pos": "",
+      "zh": "基于细胞的 cell-baseds 是 cell-based 的复数",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "cell-deriveds",
+      "ph": "",
+      "pos": "",
+      "zh": "细胞衍生的 cell-deriveds 是 cell-derived 的复数",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "cell-matrix",
+      "ph": "",
+      "pos": "",
+      "zh": "细胞基质，单元矩阵 细胞矩阵，电池分布",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "cell-substance",
+      "ph": "",
+      "pos": "",
+      "zh": "细胞质",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "cellblocks",
+      "ph": "",
+      "pos": "",
+      "zh": "(若干牢房组成的)监狱分区 囚犯室，监狱中一组囚犯室，细胞块切片 cellblocks 是 cellblock 的复数",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "cellinclusion",
+      "ph": "",
+      "pos": "",
+      "zh": "细胞内含物",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "celltransformation",
+      "ph": "",
+      "pos": "",
+      "zh": "细胞转化",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "cellularly",
+      "ph": "/'seljulə/",
+      "pos": "adv.",
+      "zh": "cellularly cellular的变形 cellular 细胞的，细胞状的 由细胞组成的 多孔的，蜂窝状的 【通信",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "cellule",
+      "ph": "/'selju:l/",
+      "pos": "n.",
+      "zh": "小细胞 细胞, 小房",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "Cellulomonadeae",
+      "ph": "",
+      "pos": "",
+      "zh": "纤维 菌族",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    },
+    {
+      "w": "cementoblastoma",
+      "ph": "",
+      "pos": "",
+      "zh": "成牙骨质细胞瘤",
+      "freq": 999999,
+      "tags": [
+        "pro",
+        "molecular"
+      ]
+    }
+  ]
+}

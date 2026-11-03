@@ -287,6 +287,14 @@ class PetSprite {
     /** 飘字层与角标（懒创建：没数值变化 / 不需要你行动时它们完全不存在） */
     this.floatLayer = null;
     this.badge = null;
+    // 单词记忆（背单词）：结构与 feedBag 同构 —— 叶子快照 + 面板句柄 + 穿透守卫 + 面板外点击监听。
+    // vocabState = /state 的 pets.<id>.vocab 叶子（events.js 推来）：菜单开关文案 +
+    // 「有待复习词时点宠物优先开面板」；面板自己走 HTTP 取题/交卷，不依赖叶子。
+    this.vocabState = null;
+    this.vocabPanel = null; // 面板句柄 { el, close, refresh }
+    this.vocabPanelClose = null;
+    this.vocabPanelOpen = false;
+    this.vocabPanelOutside = null;
     // 自动隐藏配置（主进程拉到配置后推来）：右键菜单要显示
     // 「全屏后自动显示桌宠：开/关」的当前状态——菜单项本身没有勾选态，状态只能写进文案。
     this.autoHideCfg = null;
@@ -294,6 +302,13 @@ class PetSprite {
       window.petBridge.onAutoHideCfg((cfg) => {
         this.autoHideCfg = cfg;
       });
+    }
+
+    // 食物袋面板打开时，**窗口之外**的点击渲染端收不到（窗口只有几百像素，屏幕其他区域不在本进程事件流里），
+    // 由主进程 60ms 轮询 + GetAsyncKeyState(bit15 当前按住) 检测到后推回来 → 这里收起面板。
+    // 注意这是"窗口外"那条通道；"窗口内、面板外"的点击由 feedBagOutside 坐标判定兜住（见 showFeedBagFromMenu）。
+    if (window.petBridge && window.petBridge.onCloseFeedBag) {
+      window.petBridge.onCloseFeedBag(() => this.closeFeedBag());
     }
 
     // DOM：sprite 钉在窗口内 (margin.l, margin.t)；宠物"位置"= sprite 位置，窗口随余量外扩
@@ -415,9 +430,14 @@ class PetSprite {
       this.feedBagClose();
       this.feedBagClose = null;
     }
+    if (this.vocabPanel) {
+      this.closeVocabPanel();
+      this.vocabPanel = null;
+    }
     this.destroyFeedHud();
     this.destroyFeedOverlays();
     this.removeFeedBagOutsideListener();
+    this.removeVocabOutsideListener();
     this.closeMenu();
     this.stopThrow();
     this.stopDragFollow();
@@ -1193,7 +1213,7 @@ class PetSprite {
    * 位移分不清"拖拽跟手"和"漫游/抛掷"）。所以由渲染端上报，主进程的兜底通道据此闭嘴。
    */
   inputBusy() {
-    return this.dragState.active || this.menuOpen || this.chatOpen || this.opacityOpen || this.feedBagOpen;
+    return this.dragState.active || this.menuOpen || this.chatOpen || this.opacityOpen || this.feedBagOpen || this.vocabPanelOpen;
   }
 
   /**
@@ -1225,7 +1245,7 @@ class PetSprite {
     }
     // 右键菜单/对话弹窗/透明度面板开启：整窗保持可交互（悬停菜单项、点输入框、拖滑块都不触发穿透
     // 翻转）；关闭后恢复命中区判定。少一个都会让那个面板"看得见点不着"。
-    if (this.menuOpen || this.chatOpen || this.opacityOpen || this.feedBagOpen) {
+    if (this.menuOpen || this.chatOpen || this.opacityOpen || this.feedBagOpen || this.vocabPanelOpen) {
       this.setInteractive(true);
       this.scheduleFeedHud(false); // 面板/菜单开着时不叠 HUD（免得两层面板打架）
       return;
@@ -1247,6 +1267,17 @@ class PetSprite {
   onClick() {
     const d = this.dragState;
     if (d.active || d.dragging || this.justDragged) return;
+    // 单词记忆：**有待复习词**时点宠物优先打开单词面板（而不是普通点击回应）——这是"该背单词了"的入口。
+    // 面板已经开着就不再抢点击（否则点宠物会把面板关掉，与食物袋面板的手感不一致）。
+    // pressScoreFired 是按下时积分弹窗留下的标记，这里必须清掉，否则这一下会被当成"已反馈过"、
+    // 且下一次点击也会被吞掉（见下面的分支）。
+    if (this.vocabState?.pending && !this.vocabPanel) {
+      this.pressScoreFired = false;
+      this.stopThrow();
+      this.stopMove();
+      void this.showVocabPanel({ quiz: true });
+      return;
+    }
     // 积分判定已在 onPointerDown（按下即触发）完成：
     // 本次按下已触发过积分 → 只收手停住、**不**再播普通点击动画（粒子+弹窗即反馈，与浏览器同构）
     if (this.pressScoreFired) {
@@ -1306,6 +1337,18 @@ class PetSprite {
     tools.push(
       // 养成系统主入口（放最前：这是"喂它"的地方，与下面几个互动项同级）
       { label: '食物袋 🐚', action: 'feed-bag' },
+      // 单词记忆（背单词）：出题/打开面板/切词书/总开关。开关状态写进文案（菜单项不支持勾选态），
+      // 状态优先取 /state 的 pets.<id>.vocab 叶子（events.js 推来），叶子未到则显示"关"。
+      {
+        label: '背单词 📖',
+        children: [
+          { label: '出题', action: 'vocab-quiz' },
+          { label: '打开面板', action: 'vocab-panel' },
+          { label: '词书：六级', action: 'vocab-book-cet6' },
+          { label: '词书：专业', action: 'vocab-book-pro' },
+          { label: '开关：' + (this.vocabState?.enabled ? '开' : '关'), action: 'vocab-toggle' },
+        ],
+      },
       { label: '碎碎念', action: 'whisper' },
       { label: '对话', action: 'chat' },
       { label: '透明度', action: 'opacity' },
@@ -1363,6 +1406,23 @@ class PetSprite {
     }
     if (leaf.action === 'feed-bag') {
       this.showFeedBagFromMenu(); // 打开食物袋面板（状态 + 每档食物 [喂]）
+      return;
+    }
+    // ---- 单词记忆（背单词）5 个 action：名字是跨端契约（浏览器端镜像同一批） ----
+    if (leaf.action === 'vocab-quiz') {
+      void this.showVocabPanel({ quiz: true }); // 先 GET 一题再开面板：首帧直接是题目，不闪"加载中"
+      return;
+    }
+    if (leaf.action === 'vocab-panel') {
+      void this.showVocabPanel(); // 打开单词面板（面板自己取当前题）
+      return;
+    }
+    if (leaf.action === 'vocab-book-cet6' || leaf.action === 'vocab-book-pro') {
+      void this.setVocabBook(leaf.action === 'vocab-book-cet6' ? 'cet6' : 'pro'); // POST /vocab/book → 重开面板
+      return;
+    }
+    if (leaf.action === 'vocab-toggle') {
+      void this.toggleVocab(); // POST /vocab/toggle → 回填叶子，菜单文案随之改变
       return;
     }
     if (leaf.action === 'whisper') {
@@ -1569,6 +1629,8 @@ class PetSprite {
         this.feedBagClose = null;
         this.feedBagOpen = false;
         window.__dshPetDebug.feedBagOpen = false;
+        // 主进程停止「窗口外点击」检测（那台通道只在面板打开期间跑，平时零开销）
+        if (window.petBridge && window.petBridge.setFeedBagOpen) window.petBridge.setFeedBagOpen(false);
         this.syncInputBusy(); // 面板关：交还常规判定（菜单还开着的话仍保持忙）
         if (!this.menuOpen) this.setInteractive(false); // 面板关了且无菜单：恢复命中区穿透
       },
@@ -1576,22 +1638,30 @@ class PetSprite {
     this.feedBagClose = m.close;
     this.feedBagOpen = true; // 穿透守卫：面板期间整窗必须保持可交互，否则 [喂] 按钮点不到
     window.__dshPetDebug.feedBagOpen = true;
+    // 让主进程开始检测「窗口之外」的鼠标按下（屏幕其他区域的点击渲染端收不到，必须由主进程补）
+    if (window.petBridge && window.petBridge.setFeedBagOpen) window.petBridge.setFeedBagOpen(true);
     this.syncInputBusy();
     this.setInteractive(true);
 
     /**
-     * 面板外点击收起（用户诉求：不必非得点回宠物才能关）。
-     * 面板打开期间整窗都可交互（上面 setInteractive(true)），所以「窗口内、面板外」的点击
-     * 都能落到渲染端 —— 捕获阶段 pointerdown 判断：面板内不管、宠物身上不管（那是菜单切换），
-     * 其余位置一律收起。用 pointerdown 而不是 click：面板里按钮自己的 click 不会被误触发。
+     * 面板外点击收起（用户诉求：不必非得点回宠物才能关）—— 两条通道：
+     *  ① 窗口内、面板外：由这里捕获阶段 pointerdown 兜住；
+     *  ② 窗口外（屏幕其他地方）：渲染端收不到事件，由主进程轮询 GetAsyncKeyState 后推
+     *     `pet:close-feedbag` 回来（见 main.js 的 pointerTimer / preload.js 的 onCloseFeedBag）。
+     *
+     * ⚠️ ①**必须用坐标判定，不能用 target 的包含关系**：窗口比宠物大得多（实测 810×652），
+     * 宠物周围那一圈是透明区，点击它时 target 可能是 html/body 甚至命中区元素；
+     * 按 `panelEl.contains(t)` / `hit.contains(t)` 判断会漏掉这类点击 → 表现为"要点两次才收起"。
+     * 现在：点在面板矩形内 → 不管；点在宠物命中区矩形内 → 不管（那是菜单/面板切换）；其余一律收起。
+     * 用 pointerdown 而不是 click：面板里按钮自己的 click 不会被误触发。
      * ⚠️ 只挂渲染端监听，**不碰主进程/窗口样式**（避免再次触发 WS_EX_LAYERED 丢失）。
-     * 窗口之外（屏幕其他区域）的点击收不到，暂不支持。
      */
     const panelEl = m.el;
     this.feedBagOutside = (e) => {
-      const t = e.target;
-      if (t && panelEl && panelEl.contains(t)) return;
-      if (t && this.hit && this.hit.contains(t)) return;
+      const pr = panelEl.getBoundingClientRect();
+      if (e.clientX >= pr.left && e.clientX <= pr.right && e.clientY >= pr.top && e.clientY <= pr.bottom) return;
+      const hr2 = this.hit.getBoundingClientRect();
+      if (e.clientX >= hr2.left && e.clientX <= hr2.right && e.clientY >= hr2.top && e.clientY <= hr2.bottom) return;
       this.closeFeedBag();
     };
     document.addEventListener('pointerdown', this.feedBagOutside, true);
@@ -1617,6 +1687,170 @@ class PetSprite {
       w: r.width * 1.24,
       h: r.height * 1.12,
     };
+  }
+
+  // ---- 单词记忆（背单词）：面板 + 词书切换 + 总开关 ----
+  // 面板视觉/交互全在 shared 的 mountVocabPanel（与浏览器端同一份契约），这里只负责：
+  // 命中区定位、穿透守卫、面板外点击收起 —— 与 showFeedBagFromMenu 同构。
+  // 数据一律走 HTTP（GET/POST /vocab*），**不**依赖 /state 叶子（叶子只给菜单文案与点击入口）。
+
+  /** 关掉单词面板（幂等）：面板外点击 / 菜单再点一次 / 切词书后重建，都走这里 */
+  closeVocabPanel() {
+    this.removeVocabOutsideListener();
+    const m = this.vocabPanel;
+    this.vocabPanel = null;
+    this.vocabPanelClose = null;
+    if (m) m.close(); // 真正复位 vocabPanelOpen / 穿透由面板 onClose 负责
+  }
+
+  /** 卸掉"面板外点击"监听（面板以任何方式关闭时都要调，避免监听残留去误关别的弹窗） */
+  removeVocabOutsideListener() {
+    if (this.vocabPanelOutside) {
+      document.removeEventListener('pointerdown', this.vocabPanelOutside, true);
+      this.vocabPanelOutside = null;
+    }
+  }
+
+  /** GET /vocab?pet=<id> 的 URL（面板与入口共用同一个 baseUrl） */
+  vocabUrl() {
+    return BASE + '/vocab?pet=' + encodeURIComponent(this.pet.id);
+  }
+
+  /** GET 一题（vocab-quiz 先取题再开面板：面板首帧直接渲染题目，不闪"加载中"） */
+  async fetchVocab() {
+    const r = await S.fetchJson(this.vocabUrl());
+    return r && r.ok && r.data && r.data.ok === true ? r.data : null;
+  }
+
+  /**
+   * 用一次 HTTP 结果回填叶子快照（enabled/book/today/streak）。
+   * 叶子来自 1s 轮询、有延迟；菜单文案与"点击优先开面板"要立刻正确，所以这里先乐观更新。
+   */
+  syncVocabState(d) {
+    if (!d || typeof d !== 'object') return;
+    const prev = this.vocabState ?? {};
+    const today = d.today && typeof d.today === 'object' ? d.today : null;
+    const stats = d.stats && typeof d.stats === 'object' ? d.stats : null;
+    this.vocabState = {
+      ...prev,
+      ...(typeof d.enabled === 'boolean' ? { enabled: d.enabled } : {}),
+      ...(typeof d.book === 'string' ? { book: d.book } : {}),
+      ...(today ? {
+        todayDone: Math.max(0, Math.round(Number(today.done) || 0)),
+        goal: Math.max(0, Math.round(Number(today.goal) || 0)),
+        due: Math.max(0, Math.round(Number(today.due) || 0)),
+      } : {}),
+      ...(stats ? { streak: Math.max(0, Math.round(Number(stats.streak ?? stats.streakDays) || 0)) } : {}),
+    };
+  }
+
+  /**
+   * 打开/关闭单词面板（照 showFeedBagFromMenu）。
+   * opts.quiz=true：先 GET 一题再开面板（菜单「出题」/ 待复习时点宠物走这条）。
+   * 已开着再调 = 先关旧的（与食物袋/透明度面板同一开关语义）。
+   */
+  async showVocabPanel(opts) {
+    if (this.vocabPanel) {
+      this.closeVocabPanel();
+      return;
+    }
+    let initial = null;
+    if (opts && opts.quiz) {
+      initial = await this.fetchVocab();
+      this.syncVocabState(initial);
+    }
+    if (this.vocabPanel) return; // 取数期间用户又点了一次（开关切换）：以最后一次为准
+    const hr = this.hit.getBoundingClientRect(); // 身体命中区（面板定位源，与气泡/对话/食物袋同一套）
+    const m = S.mountVocabPanel({
+      petId: this.pet.id,
+      baseUrl: BASE + '/vocab',
+      x: Math.max(4, hr.right + 6),
+      y: Math.max(4, hr.top + 6),
+      // 命中区下方放不下时面板改为「底边对齐命中区底部」向上生长（与食物袋面板一致）
+      yBottom: hr.bottom + 6,
+      // 避让基准 = 身体命中区（外扩 12%/6%），面板据此选贴哪条余量
+      petRect: this.panelPetRect(),
+      // 只允许在「窗口 ∩ 工作区」内显示：宠物贴边时不被屏幕裁掉（#41）
+      clamp: this.visibleClampRect(),
+      initial,
+      onClose: () => {
+        this.removeVocabOutsideListener(); // 面板以任何方式关闭都要卸监听
+        this.vocabPanel = null;
+        this.vocabPanelClose = null;
+        this.vocabPanelOpen = false;
+        window.__dshPetDebug.vocabPanelOpen = false;
+        this.syncInputBusy(); // 面板关：交还常规判定（菜单还开着的话仍保持忙）
+        if (!this.menuOpen) this.setInteractive(false); // 面板关了且无菜单：恢复命中区穿透
+      },
+    });
+    this.vocabPanel = m;
+    this.vocabPanelClose = m.close;
+    this.vocabPanelOpen = true; // 穿透守卫：面板期间整窗必须保持可交互，否则选项按钮点不到
+    window.__dshPetDebug.vocabPanelOpen = true;
+    this.syncInputBusy();
+    this.setInteractive(true);
+
+    /**
+     * 面板外点击收起（照 feedBagOutside）：面板打开期间整窗可交互，所以「窗口内、面板外」的点击
+     * 都能落到渲染端 —— 捕获阶段 pointerdown 用**坐标**判定（不用 target 包含关系：窗口透明区
+     * 被点时会得过成 html/body，按 target 判断会漏成"要点两次"）：
+     * 面板矩形内不管、宠物命中区内不管（那是菜单切换），其余位置一律收起。
+     * 窗口之外（屏幕其他区域）的点击收不到——不碰主进程/窗口样式（避免 WS_EX_LAYERED 丢失）。
+     */
+    const panelEl = m.el;
+    this.vocabPanelOutside = (e) => {
+      const pr = panelEl.getBoundingClientRect();
+      if (e.clientX >= pr.left && e.clientX <= pr.right && e.clientY >= pr.top && e.clientY <= pr.bottom) return;
+      const hb = this.hit.getBoundingClientRect();
+      if (e.clientX >= hb.left && e.clientX <= hb.right && e.clientY >= hb.top && e.clientY <= hb.bottom) return;
+      this.closeVocabPanel();
+    };
+    document.addEventListener('pointerdown', this.vocabPanelOutside, true);
+  }
+
+  /** 切词书（菜单「词书：六级/专业」）：POST /vocab/book → 回填叶子 → 重开/刷新面板 */
+  async setVocabBook(book) {
+    const r = await S.fetchJson(BASE + '/vocab/book', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ petId: this.pet.id, book }),
+    });
+    const d = r && r.data;
+    if (!r.ok || !d || d.ok !== true) {
+      console.warn('[dsh-pet] 词书切换失败 pet=' + this.pet.id + ' book=' + book + ' HTTP ' + r.status);
+      return;
+    }
+    this.syncVocabState({ ...(this.vocabState ?? {}), book: typeof d.book === 'string' ? d.book : book });
+    pollStateNow(); // 叶子下一拍就会带上新书；本次先本地回填，菜单文案立刻正确
+    if (this.vocabPanel) {
+      await this.vocabPanel.refresh(); // 面板开着：原地换一题（不重建，避免闪烁）
+      return;
+    }
+    await this.showVocabPanel(); // 菜单已关：重开面板，直接看到新词的题
+  }
+
+  /** 总开关（菜单「开关：开/关」）：POST /vocab/toggle → 用响应/GET 回填真实 enabled */
+  async toggleVocab() {
+    const next = !(this.vocabState && this.vocabState.enabled === true);
+    // body 同时给 enabled 与 on：两端字段名未强行约定，host 认哪个都能用（多给的键 JS 端会忽略）
+    const r = await S.fetchJson(BASE + '/vocab/toggle', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ petId: this.pet.id, enabled: next, on: next }),
+    });
+    const d = r && r.data;
+    if (!r.ok || !d || d.ok !== true) {
+      console.warn('[dsh-pet] 单词开关切换失败 pet=' + this.pet.id + ' HTTP ' + r.status);
+      return;
+    }
+    this.syncVocabState({
+      ...(this.vocabState ?? {}),
+      enabled: typeof d.enabled === 'boolean' ? d.enabled : next,
+    });
+    // 响应没带 enabled 时直接 GET 回填真实值：叶子有 1s 延迟，菜单文案要立刻正确
+    if (typeof d.enabled !== 'boolean') this.syncVocabState(await this.fetchVocab());
+    pollStateNow(); // 叶子下一拍带上真实 enabled
+    if (this.vocabPanel) await this.vocabPanel.refresh(); // 面板开着（关掉后题目会清空/提示）
   }
 
   // ---- 悬停 HUD（设计 §14.2 第③层：主动悬停＝明确查询意图，此时才给精确数字）----

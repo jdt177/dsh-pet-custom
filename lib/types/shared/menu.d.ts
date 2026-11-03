@@ -5,10 +5,26 @@ export interface MenuLeaf {
     /** 播放的动画名（点播动作）；action 优先于 anim */
     anim?: string;
     /** 自定义动作：open-harness=打开Harness（唤起并聚焦 DSH 桌面端）/ show-balance=查看余额；whisper=立即碎碎念一句；
-     * chat=打开对话弹窗；home=回到初始位置；reload=重载配置（桌面端专属：重启桌面 Helper，
+     * chat=打开对话弹窗；feed-bag=打开食物袋面板（养成系统一期：鲸贝/饱食度/心情/等级 + 各档食物 [喂]）；
+     * vocab-quiz=背单词：出一题并打开单词面板；vocab-panel=打开/收起单词面板；
+     * vocab-book-cet6 / vocab-book-pro=切换词书（六级 / 专业）；
+     * vocab-toggle=背单词总开关（POST /vocab/toggle）；
+     * home=回到初始位置；reload=重载配置（桌面端专属：重启桌面 Helper，
      * 全部桌面宠物窗口按最新配置重建——浏览器端刷新页面即可，不注入此项）。
      * 手动触发均不受 whisperEnabled 影响（该字段只关自动周期轮询） */
-    action?: 'open-harness' | 'show-balance' | 'whisper' | 'chat' | 'feed-bag' | 'home' | 'reload';
+    action?:
+        | 'open-harness'
+        | 'show-balance'
+        | 'whisper'
+        | 'chat'
+        | 'feed-bag'
+        | 'vocab-quiz'
+        | 'vocab-panel'
+        | 'vocab-book-cet6'
+        | 'vocab-book-pro'
+        | 'vocab-toggle'
+        | 'home'
+        | 'reload';
 }
 /** 分支：带子菜单的项 */
 export interface MenuBranch {

@@ -65,4 +65,14 @@ contextBridge.exposeInMainWorld('petBridge', {
   setAutoRestore(on) {
     ipcRenderer.send('pet:set-auto-restore', !!on);
   },
+  // ---- 食物袋面板「窗口外点击收起」----
+  // 面板打开时上报 true（主进程开始在兜底轮询里检测窗口之外的鼠标按下），关闭时上报 false。
+  // 屏幕其他区域的点击渲染端收不到事件，只能由主进程用 GetAsyncKeyState(bit15) 补这条通道。
+  setFeedBagOpen(open) {
+    ipcRenderer.send('pet:feedbag-open', !!open);
+  },
+  // 主进程检测到「面板打开期间、光标在窗口外按下了鼠标」→ 推 pet:close-feedbag，渲染端收起面板。
+  onCloseFeedBag(cb) {
+    ipcRenderer.on('pet:close-feedbag', () => cb());
+  },
 });

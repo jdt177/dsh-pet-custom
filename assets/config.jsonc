@@ -473,5 +473,41 @@
       "giftSuppressed": true,
       "useSystemState": true
     }
+  },
+  // ==================== 单词记忆（可选功能，默认关闭） ====================
+  // 开关打开后：右键「背单词 📖」/ 斜杠 /vocab / 气泡低频抽查；关闭后零开销（不载词库、不出题、无入口）。
+  // 词库随包发布在 assets/vocab/（cet6.json 5805 词 + pro.json 2000 词），运行期完全离线。
+  "vocab": {
+    "enabled": false,            // 总开关：默认关，用户开启后写回 main-config.jsonc 并记住
+    "book": "cet6",              // 当前词书：cet6（六级）| pro（生物·生信）
+    "books": {
+      "cet6": { "label": "六级", "file": "cet6.json" },
+      "pro": { "label": "生物·生信", "file": "pro.json" }
+    },
+    "dailyNew": 10,              // 每日新词数
+    "dailyReviewMax": 50,        // 每日复习上限
+    "goalPerDay": 20,            // 每日目标（新词+复习完成数）→ 达成给目标奖励
+    "ladderMinutes": [10, 1440, 2880, 5760, 11520, 23040], // 10min → 1d → 2d → 4d → 8d → 16d
+    "wrongRequeueMinutes": 10,   // 答错（不认识）→ 重置首档并 10 分钟后重进队
+    "quiz": {
+      "choices": 4,              // 选择题选项数
+      "distractorStrategy": "confusable" // 干扰项从同领域词里取（易混词）
+    },
+    "nudge": {                   // 气泡低频抽查（碎片时间）
+      "enabled": true,
+      "everyMin": 20,            // 至少间隔 20 分钟才抽查一次
+      "dndRespect": true         // 免打扰时段不出题
+    },
+    "hud": { "enabled": true },
+    "badge": { "enabled": false },
+    "reward": {                  // 与养成系统联动：答对给经验/心情/少量鲸贝；答错**不扣**任何数值
+      "expPerCorrect": 2,
+      "moodPerCorrect": 1,
+      "moodDailyLimit": 10,
+      "coinEveryCorrect": 10,
+      "coinPerBatch": 1,
+      "goalExp": 20,
+      "goalMood": 5
+    }
   }
 }

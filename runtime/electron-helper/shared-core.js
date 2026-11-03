@@ -1872,6 +1872,458 @@ function mountFeedBagPanel(opts) {
 	};
 }
 
+// ---------- 单词面板（单词记忆 / 背单词） ----------
+// 数据全部走 HTTP（GET <BASE>/vocab?pet=<id> 取题、POST <BASE>/vocab/answer 交卷），**不依赖 /state 叶子**：
+// 面板自己取题、自己交卷、自己展示反馈 —— 与浏览器端同一份契约，两端天然一致。
+// 叶子（pets.<id>.vocab）只承担轻量入口：菜单开关文案 + 「有待复习词时点宠物优先开面板」。
+// ⚠️ shared-core 里**没有 S 全局**（S 是 constants.js 在渲染端挂的别名）：本文件一律用裸 fetchJson。
+// 视觉照食物袋面板（白底/圆角/蓝色按钮），类名前缀统一 dsh-pet-vocab-。
+const VOCAB_PANEL_CSS = [
+	'.dsh-pet-vocab{position:fixed;z-index:2147483002;width:240px;display:flex;flex-direction:column;',
+	'padding:9px 11px 10px;background:rgba(255,255,255,.97);border:1px solid rgba(0,0,0,.1);',
+	'border-radius:9px;box-shadow:0 10px 32px rgba(0,0,0,.22);color:#2b2b2b;font-size:13px;line-height:1.45;',
+	"font-family:'ShangshouSoftCandy','Yuanti SC','YouYuan','幼圆','Comic Sans MS','PingFang SC','Microsoft YaHei',sans-serif;",
+	'user-select:none;overflow:hidden}',
+	'.dsh-pet-vocab *{box-sizing:border-box}',
+	'.dsh-pet-vocab-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;',
+	'font-size:12px;color:rgba(43,43,43,.6);margin-bottom:6px;white-space:nowrap}',
+	'.dsh-pet-vocab-progress{color:#2b63ff;font-variant-numeric:tabular-nums;flex:none}',
+	'.dsh-pet-vocab-book{flex:0 1 auto;overflow:hidden;text-overflow:ellipsis}',
+	'.dsh-pet-vocab-body{min-height:0;overflow-y:auto}',
+	'.dsh-pet-vocab-word{font-size:20px;font-weight:600;line-height:1.25;overflow-wrap:anywhere}',
+	'.dsh-pet-vocab-ph{color:rgba(43,43,43,.5);font-size:11px;margin-top:1px;overflow-wrap:anywhere}',
+	'.dsh-pet-vocab-choices{display:flex;flex-direction:column;gap:4px;margin-top:7px}',
+	'.dsh-pet-vocab-choice{display:block;width:100%;text-align:left;border:1px solid rgba(43,99,255,.22);',
+	'background:rgba(43,99,255,.14);color:#2b2b2b;border-radius:7px;padding:5px 8px;font-size:13px;',
+	'line-height:1.35;font-family:inherit;cursor:pointer;overflow-wrap:anywhere}',
+	'.dsh-pet-vocab-choice:hover:not(:disabled){background:rgba(43,99,255,.26)}',
+	'.dsh-pet-vocab-choice:disabled{cursor:default;opacity:.7}',
+	'.dsh-pet-vocab-choice.is-right{border-color:rgba(46,160,80,.8);background:rgba(46,160,80,.16);',
+	'color:#1f6b3a;font-weight:600;opacity:1}',
+	'.dsh-pet-vocab-choice.is-wrong{border-color:rgba(217,79,61,.75);background:rgba(217,79,61,.13);',
+	'color:#a4341f;opacity:1}',
+	'.dsh-pet-vocab-choice.is-fuzzy{border-color:rgba(214,160,30,.8);background:rgba(214,160,30,.14);',
+	'color:#8a5a00;opacity:1}',
+	'.dsh-pet-vocab-feedback{margin-top:6px;font-size:12px;white-space:pre-wrap;overflow-wrap:anywhere}',
+	'.dsh-pet-vocab-feedback:empty{display:none}',
+	'.dsh-pet-vocab-feedback.is-err{color:#d94f3d}',
+	'.dsh-pet-vocab-foot{display:flex;justify-content:space-between;align-items:center;gap:8px;',
+	'margin-top:6px;padding-top:5px;border-top:1px solid rgba(0,0,0,.08)}',
+	'.dsh-pet-vocab-hint{flex:0 1 auto;color:rgba(43,43,43,.45);font-size:11px;',
+	'overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
+	'.dsh-pet-vocab-btn{border:1px solid rgba(43,99,255,.5);background:rgba(43,99,255,.1);color:#2b63ff;',
+	'border-radius:6px;padding:2px 10px;font-size:12px;font-family:inherit;cursor:pointer;white-space:nowrap}',
+	'.dsh-pet-vocab-btn:hover:not(:disabled){background:rgba(43,99,255,.18)}',
+	'.dsh-pet-vocab-btn:disabled{border-color:rgba(0,0,0,.12);background:transparent;color:rgba(43,43,43,.4);cursor:default}',
+	'.dsh-pet-vocab.is-narrow{width:180px}',
+	'.dsh-pet-vocab.is-narrow .dsh-pet-vocab-head{flex-direction:column;align-items:flex-start;gap:0}'
+].join('');
+let vocabCssInjected = false;
+function injectVocabPanelCss() {
+	if (vocabCssInjected || typeof document === 'undefined') return;
+	vocabCssInjected = true;
+	const tag = document.createElement('style');
+	tag.dataset.plugin = 'dsh-pet';
+	tag.dataset.pluginCss = 'dsh-pet/vocab';
+	tag.textContent = VOCAB_PANEL_CSS;
+	document.head.appendChild(tag);
+}
+/** 词书短标签兜底（host 的 books 可能是 ['cet6','pro'] 也可能是 [{id,label}]，两种都得认） */
+const VOCAB_BOOK_LABELS = {
+	cet6: '六级',
+	pro: '专业'
+};
+function vocabBookLabel(data) {
+	const cur = data && typeof data.book === 'string' ? data.book : '';
+	const books = data && Array.isArray(data.books) ? data.books : [];
+	for (const b of books) {
+		if (typeof b === 'string') {
+			if (b === cur) return VOCAB_BOOK_LABELS[b] ?? b;
+		} else if (b && typeof b === 'object' && (b.id === cur || b.book === cur)) {
+			return b.label ?? b.name ?? VOCAB_BOOK_LABELS[cur] ?? cur;
+		}
+	}
+	return VOCAB_BOOK_LABELS[cur] ?? cur;
+}
+/** 按顺序取第一个非空字符串（响应字段形状容错：d.zh / d.answer.zh / d.word.zh / q.zh …） */
+function vocabFirstText(list) {
+	for (const v of list) if (typeof v === 'string' && v) return v;
+	return '';
+}
+function vocabTodayOf(d) {
+	const t = d && typeof d.today === 'object' && d.today ? d.today : {};
+	const num = (v) => Math.max(0, Math.round(Number(v) || 0));
+	return {
+		goal: num(t.goal),
+		done: num(t.done),
+		due: num(t.due),
+		newDone: num(t.newDone),
+		reviewDone: num(t.reviewDone)
+	};
+}
+function vocabStreakOf(d) {
+	const s = d && typeof d.stats === 'object' && d.stats ? d.stats : {};
+	return Math.max(0, Math.round(Number(s.streak ?? s.streakDays ?? d?.today?.streak ?? 0) || 0));
+}
+/**
+ * 交卷结果的三档：**以 host 的判定为准**（它知道正确答案）。
+ * 优先级：响应 d.grade（known/fuzzy/unknown）> d.correct 布尔 > 兜底 fuzzy（中性，绝不误判成已掌握）。
+ */
+function vocabResultGrade(d) {
+	if (d && typeof d === 'object' && (d.grade === 'known' || d.grade === 'fuzzy' || d.grade === 'unknown')) return d.grade;
+	if (d && typeof d === 'object' && d.correct === true) return 'known';
+	if (d && typeof d === 'object' && d.correct === false) return 'unknown';
+	return 'fuzzy';
+}
+/** 反馈区第一行的三档文案（绿/黄/红语义） */
+function vocabGradeHead(g) {
+	if (g === 'known') return '✅ 答对了';
+	if (g === 'unknown') return '❌ 答错了';
+	return '🤔 模糊（奖励减半）';
+}
+/**
+ * 若题干自带正确答案标记（answerId / correctId / answerIndex / choices[i].correct / zh 对得上），
+ * 本地就能判出正误时返回 known/unknown，判不出返回 null。
+ * ⚠️ 只用于**展示兜底**（host 没回 grade/correct 时仍能标绿），提交口径固定 grade='fuzzy'+choiceId。
+ */
+function vocabChoiceGrade(q, choice, index) {
+	if (choice && choice.correct === true) return 'known';
+	if (choice && choice.correct === false) return 'unknown';
+	if (!q) return null;
+	const cid = choice && choice.id !== void 0 ? choice.id : void 0;
+	if (cid !== void 0) {
+		const want = q.answerId !== void 0 ? q.answerId : q.correctId !== void 0 ? q.correctId : void 0;
+		if (want !== void 0 && want !== null) return String(cid) === String(want) ? 'known' : 'unknown';
+	}
+	if (Number.isInteger(q.answerIndex)) return index === q.answerIndex ? 'known' : 'unknown';
+	const zh = vocabFirstText([q.zh, q.answer]);
+	if (zh && choice && typeof choice.zh === 'string') return choice.zh === zh ? 'known' : 'unknown';
+	return null;
+}
+/** 正确项下标（响应标记优先，其次本地判定）—— 答错/模糊时把正确选项标绿 */
+function vocabRightIndex(q, d) {
+	const choices = q && Array.isArray(q.choices) ? q.choices : [];
+	const want = d && (d.correctId !== void 0 && d.correctId !== null ? d.correctId : d.answerId);
+	if (want !== void 0 && want !== null) {
+		const i = choices.findIndex((c) => c && String(c.id) === String(want));
+		if (i >= 0) return i;
+	}
+	if (d && Number.isInteger(d.answerIndex)) return d.answerIndex;
+	const zh = vocabFirstText([
+		d?.zh,
+		d?.answer?.zh,
+		d?.word?.zh,
+		q?.zh,
+		q?.answer
+	]);
+	if (zh) {
+		const i = choices.findIndex((c) => c && String(c.zh) === zh);
+		if (i >= 0) return i;
+	}
+	for (let i = 0; i < choices.length; i++) if (vocabChoiceGrade(q, choices[i], i) === 'known') return i;
+	return -1;
+}
+const VOCAB_PANEL_MIN_SIDE = 170;
+const VOCAB_PANEL_MIN_STACK = 200;
+/**
+ * 单词面板：头部（📖 今日 done/goal · 连续 N 天 · 词书）→ 单词（20px/600）+ 音标（灰小字）+ 词性
+ * → 4 个选项按钮（点击即 POST /answer {petId,wordId,grade:'fuzzy',choiceId}，**host 按 choiceId 判分**）
+ *   或 3 档自评（认识/模糊/不认识 → known/fuzzy/unknown）
+ * → 反馈（✅ 绿框 / 🤔 中性"模糊（奖励减半）" / ❌ 红框 + 释义 + 例句 + `+⭐x +😊y +🐚z`）
+ * → 「下一个」（GET 取下一题）。
+ * opts: { petId, baseUrl, x, y, yBottom?, petRect?, clamp?, initial?, onClose?() } → { el, close, refresh }
+ * · initial：调用方先 GET 好的整份响应（「出题」菜单用），有它就不再发首个 GET，首帧直接是题目
+ * · 外部点击收起由**调用方**监听（照 sprite 的 feedBagOutside 模式）——面板内只处理 Esc
+ */
+function mountVocabPanel(opts) {
+	injectVocabPanelCss();
+	const petId = opts.petId;
+	const baseUrl = opts.baseUrl ?? '/dsh-pet-7340/vocab';
+	const withPet = baseUrl + '?pet=' + encodeURIComponent(petId);
+	const c = opts.clamp && Number.isFinite(opts.clamp.x + opts.clamp.y + opts.clamp.w + opts.clamp.h) ? opts.clamp : {
+		x: 0,
+		y: 0,
+		w: window.innerWidth,
+		h: window.innerHeight
+	};
+	// ---- 摆位预判：照 mountFeedBagPanel（先定"贴哪条余量"与宽度，宽度影响换行，必须在建 DOM 前定下来）----
+	const pet = opts.petRect && Number.isFinite(opts.petRect.x + opts.petRect.y + opts.petRect.w + opts.petRect.h) ? opts.petRect : null;
+	const room = pet ? {
+		right: c.x + c.w - (pet.x + pet.w) - 12,
+		left: pet.x - c.x - 12,
+		above: pet.y - c.y - 12,
+		below: c.y + c.h - (pet.y + pet.h) - 12
+	} : null;
+	let slot = 'overlap';
+	if (room) {
+		if (room.right >= VOCAB_PANEL_MIN_SIDE) slot = 'right';
+		else if (room.left >= VOCAB_PANEL_MIN_SIDE) slot = 'left';
+		else if (room.above >= VOCAB_PANEL_MIN_STACK) slot = 'above';
+		else if (room.below >= VOCAB_PANEL_MIN_STACK) slot = 'below';
+	}
+	const fullW = Math.max(180, c.w - 8);
+	const panelW = slot === 'right' || slot === 'left' ? Math.min(240, Math.max(VOCAB_PANEL_MIN_SIDE, room[slot])) : Math.min(240, fullW);
+	const panelH = slot === 'above' || slot === 'below' ? Math.min(260, Math.max(VOCAB_PANEL_MIN_STACK, room[slot])) : Math.max(60, c.h - 8);
+	const narrow = panelW < 200;
+	const root = feedEl('div', 'dsh-pet-vocab' + (narrow ? ' is-narrow' : ''));
+	root.style.width = panelW + 'px';
+	root.style.maxWidth = fullW + 'px';
+	root.style.maxHeight = panelH + 'px';
+	// 头部：📖 今日 3/20 · 连续 5 天 | 六级
+	const head = feedEl('div', 'dsh-pet-vocab-head');
+	const progress = feedEl('span', 'dsh-pet-vocab-progress', '📖 …');
+	const bookEl = feedEl('span', 'dsh-pet-vocab-book', '');
+	head.appendChild(progress);
+	head.appendChild(bookEl);
+	// 主体：单词 + 音标/词性 + 选项 + 反馈（内容长了在面板内滚动）
+	const body = feedEl('div', 'dsh-pet-vocab-body');
+	const wordEl = feedEl('div', 'dsh-pet-vocab-word', '');
+	const phEl = feedEl('div', 'dsh-pet-vocab-ph', '');
+	const choicesEl = feedEl('div', 'dsh-pet-vocab-choices', '');
+	const feedback = feedEl('div', 'dsh-pet-vocab-feedback', '');
+	body.appendChild(wordEl);
+	body.appendChild(phEl);
+	body.appendChild(choicesEl);
+	body.appendChild(feedback);
+	// 底部：提示（待复习 N / 今日已完成）+ [下一个]
+	const foot = feedEl('div', 'dsh-pet-vocab-foot');
+	const hint = feedEl('span', 'dsh-pet-vocab-hint', '');
+	const nextBtn = feedEl('button', 'dsh-pet-vocab-btn', '下一个');
+	nextBtn.type = 'button';
+	nextBtn.title = '取下一题（GET ' + baseUrl + '）';
+	foot.appendChild(hint);
+	foot.appendChild(nextBtn);
+	root.appendChild(head);
+	root.appendChild(body);
+	root.appendChild(foot);
+	document.body.appendChild(root);
+	/**
+	 * 定位：与食物袋面板同一套规则 —— 贴余量条（right/left/above/below）或压在宠物旁边；
+	 * 每次内容变化后都要重算（appendChild 那一刻量到的是空面板高度）。
+	 */
+	const place = () => {
+		const rr = root.getBoundingClientRect();
+		const w = Math.min(rr.width, Math.max(60, c.w - 8));
+		const h = Math.min(rr.height, Math.max(60, panelH));
+		let left;
+		let top;
+		if (pet && slot === 'right') left = pet.x + pet.w + 6;
+		else if (pet && slot === 'left') left = pet.x - w - 6;
+		else left = opts.x;
+		if (pet && (slot === 'above' || slot === 'below')) top = slot === 'above' ? pet.y - h - 6 : pet.y + pet.h + 6;
+		else {
+			top = opts.y;
+			if (opts.yBottom !== void 0 && top + h > c.y + c.h - 4) top = opts.yBottom - h;
+		}
+		root.style.left = Math.max(c.x + 4, Math.min(left, c.x + c.w - w - 4)) + 'px';
+		root.style.top = Math.max(c.y + 4, Math.min(top, c.y + c.h - h - 4)) + 'px';
+	};
+	place();
+
+	let closed = false;
+	let busy = false;
+	let data = null;
+	let question = null;
+	let answered = false;
+	let choiceEls = [];
+	/** 外部点击收起由调用方监听；这里只收 Esc（面板是窗口内 DOM，Esc 是唯一的本地快捷键） */
+	const close = () => {
+		if (closed) return;
+		closed = true;
+		document.removeEventListener('keydown', onDocKey, true);
+		root.remove();
+		if (opts.onClose) opts.onClose();
+	};
+	const onDocKey = (e) => {
+		if (!closed && e.key === 'Escape') close();
+	};
+	document.addEventListener('keydown', onDocKey, true);
+
+	const setFeedback = (text, isErr) => {
+		feedback.textContent = text;
+		feedback.classList.toggle('is-err', !!isErr);
+	};
+	const setChoicesDisabled = (flag) => {
+		for (const b of choiceEls) b.disabled = flag;
+	};
+	/** 头部：今日进度 + 连续天数 + 词书；narrow（窄面板）只留「📖 done/goal」 */
+	const renderHead = (d) => {
+		const t = vocabTodayOf(d);
+		const streak = vocabStreakOf(d);
+		progress.textContent = narrow
+			? '📖 ' + t.done + '/' + t.goal
+			: '📖 今日 ' + t.done + '/' + t.goal + (streak > 0 ? ' · 连续 ' + streak + ' 天' : '');
+		bookEl.textContent = vocabBookLabel(d);
+		hint.textContent = t.due > 0 ? '待复习 ' + t.due : t.goal > 0 && t.done >= t.goal ? '今日已完成 🎉' : '';
+	};
+	/** 反馈文案：三档结果 + 中文释义 + 例句 + 本轮奖励（任何字段缺失都优雅降级） */
+	const feedbackText = (d, clickedChoice, rightIdx, headText) => {
+		const gained = d && typeof d.gained === 'object' && d.gained ? d.gained : null;
+		const gainedText = gained ? [
+			gained.exp ? '+⭐' + gained.exp : '',
+			gained.mood ? '+😊' + gained.mood : '',
+			gained.coin ? '+🐚' + gained.coin : ''
+		].filter(Boolean).join(' ') : '';
+		const rightChoice = rightIdx >= 0 && Array.isArray(question?.choices) ? question.choices[rightIdx] : null;
+		const def = vocabFirstText([
+			d?.zh,
+			d?.answer?.zh,
+			d?.word?.zh,
+			rightChoice?.zh,
+			clickedChoice?.zh,
+			question?.zh
+		]);
+		const ex = vocabFirstText([
+			d?.ex,
+			d?.answer?.ex,
+			d?.word?.ex,
+			question?.ex
+		]);
+		return [
+			headText,
+			def ? '释义：' + def : '',
+			ex ? '例句：' + ex : '',
+			gainedText
+		].filter(Boolean).join('\n');
+	};
+	/** 交卷（选择题 / 自评共用）：POST /answer → 标三档颜色、禁用选项、写反馈、刷新今日进度 */
+	const doAnswer = async (body, onGraded) => {
+		if (busy || closed || answered) return;
+		busy = true;
+		nextBtn.disabled = true;
+		setChoicesDisabled(true);
+		const r = await fetchJson(baseUrl + '/answer', {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({
+				petId,
+				...body
+			})
+		});
+		busy = false;
+		if (closed) return;
+		nextBtn.disabled = false;
+		const d = r.data;
+		if (!r.ok || !d || d.ok === false) {
+			// 失败：允许重选/重试（不置 answered，否则这一题永远答不了）
+			setFeedback('提交失败：' + (d?.message ?? d?.error ?? 'HTTP ' + r.status), true);
+			setChoicesDisabled(false);
+			return;
+		}
+		if (d.today) {
+			data = { ...(data ?? {}), today: d.today };
+			renderHead(data);
+		}
+		onGraded(d);
+		place();
+	};
+	/** 选择题：grade 固定 fuzzy + choiceId，由 host 判分；三档结果来自响应 */
+	const submitChoice = async (choice, index) => {
+		if (answered || busy) return;
+		await doAnswer({
+			wordId: question?.id ?? question?.w,
+			grade: 'fuzzy',
+			choiceId: choice?.id
+		}, (d) => {
+			answered = true;
+			// host 给了判定（grade/correct）就照它；一个都没给时用题干标记兜底，仍判不出 → 中性
+			let shown;
+			if (d && (d.grade !== void 0 || d.correct !== void 0)) shown = vocabResultGrade(d);
+			else {
+				const local = vocabChoiceGrade(question, choice, index);
+				shown = local === 'known' ? 'known' : local === 'unknown' ? 'unknown' : 'fuzzy';
+			}
+			const rightIdx = vocabRightIndex(question, d);
+			choiceEls.forEach((b, i) => {
+				if (i === index) b.classList.add(shown === 'known' ? 'is-right' : shown === 'unknown' ? 'is-wrong' : 'is-fuzzy');
+				else if (i === rightIdx) b.classList.add('is-right'); // 答错/模糊时把正确项一起标绿
+			});
+			setChoicesDisabled(true);
+			setFeedback(feedbackText(d, choice, rightIdx, vocabGradeHead(shown)), false);
+		});
+	};
+	/** 自评（回忆型题）：用户自己选的三档就是结果 */
+	const submitGrade = async (grade, label, index) => {
+		if (answered || busy) return;
+		await doAnswer({
+			wordId: question?.id ?? question?.w,
+			grade
+		}, (d) => {
+			answered = true;
+			const res = d && (d.grade === 'known' || d.grade === 'fuzzy' || d.grade === 'unknown') ? d.grade : grade;
+			const rightIdx = vocabRightIndex(question, d);
+			choiceEls.forEach((b, i) => {
+				if (i === index) b.classList.add(res === 'known' ? 'is-right' : res === 'unknown' ? 'is-wrong' : 'is-fuzzy');
+				else if (i === rightIdx) b.classList.add('is-right');
+			});
+			setChoicesDisabled(true);
+			setFeedback(feedbackText(d, null, rightIdx, vocabGradeHead(res) + '（' + label + '）'), false);
+		});
+	};
+	/** 渲染一道题：有 choices 就是选择题（4 个选项按钮），否则是回忆型题（3 档自评） */
+	const renderQuestion = (q) => {
+		choicesEl.textContent = '';
+		choiceEls = [];
+		answered = false;
+		setFeedback('', false);
+		wordEl.textContent = '';
+		phEl.textContent = '';
+		question = q && typeof q === 'object' ? q : null;
+		if (!question || (!question.w && !question.id)) {
+			// 两种空题：功能被关掉（host 回 {ok:true,enabled:false}）vs 今日/本词书已答完
+			const off = data && data.enabled === false;
+			wordEl.textContent = off ? '单词功能已关闭' : '题目已答完 🎉';
+			phEl.textContent = off ? '右键菜单 → 背单词 → 开关' : '点「下一个」刷新';
+			place();
+			return;
+		}
+		wordEl.textContent = String(question.w ?? question.id ?? '');
+		phEl.textContent = [question.ph, question.pos].filter((x) => typeof x === 'string' && x).join(' ');
+		const choices = Array.isArray(question.choices) ? question.choices.filter((x) => x && typeof x === 'object') : [];
+		if (choices.length > 0) {
+			choices.forEach((ch, i) => {
+				const btn = feedEl('button', 'dsh-pet-vocab-choice', String(ch.zh ?? ch.label ?? ch.w ?? ''));
+				btn.type = 'button';
+				btn.addEventListener('click', () => void submitChoice(ch, i));
+				choicesEl.appendChild(btn);
+				choiceEls.push(btn);
+			});
+		} else {
+			// 回忆型题（无选项）：三档自评，点击即交卷
+			[['known', '认识'], ['fuzzy', '模糊'], ['unknown', '不认识']].forEach(([grade, label], i) => {
+				const btn = feedEl('button', 'dsh-pet-vocab-choice', label);
+				btn.type = 'button';
+				btn.addEventListener('click', () => void submitGrade(grade, label, i));
+				choicesEl.appendChild(btn);
+				choiceEls.push(btn);
+			});
+		}
+		place();
+	};
+	const refresh = async () => {
+		const r = await fetchJson(withPet);
+		if (closed) return;
+		if (!r.ok || !r.data || r.data.ok !== true) {
+			setFeedback('读取题目失败：' + (r.data?.message ?? r.data?.error ?? 'HTTP ' + r.status), true);
+			return;
+		}
+		data = r.data;
+		renderHead(data);
+		renderQuestion(data.question);
+	};
+	nextBtn.addEventListener('click', () => void refresh());
+	if (opts.initial && typeof opts.initial === 'object') {
+		data = opts.initial; // 「出题」菜单已先 GET 过：直接用，首帧就是题目
+		renderHead(data);
+		renderQuestion(data.question);
+	} else void refresh();
+	return {
+		el: root,
+		close,
+		refresh
+	};
+}
+
 // ---------- 悬停 HUD（设计 §14.2 第③层） ----------
 // 鼠标停在宠物上 350ms 出现、移开 200ms 淡出；**不吃鼠标事件**（pointer-events:none，保持穿透）。
 // 数据来自 /state 的 pets.<id>.feed 叶子（宿主 1s 轮询推来），所以 HUD 自己不请求任何接口。
@@ -2128,6 +2580,7 @@ exports.SQ_MAX_SQUASH = SQ_MAX_SQUASH
 exports.SQ_SOFT_SPEED = SQ_SOFT_SPEED
 exports.SQ_SQUASH = SQ_SQUASH
 exports.TRAIL_KEEP_MS = TRAIL_KEEP_MS
+exports.VOCAB_PANEL_CSS = VOCAB_PANEL_CSS
 exports.WINDOW_LABELS = WINDOW_LABELS
 exports.WORK_STATUS_INDEX = WORK_STATUS_INDEX
 exports.WORK_STATUS_STATES = WORK_STATUS_STATES
@@ -2166,6 +2619,7 @@ exports.mountFeedBadge = mountFeedBadge
 exports.mountFeedFloat = mountFeedFloat
 exports.mountFeedHud = mountFeedHud
 exports.mountScorePopup = mountScorePopup
+exports.mountVocabPanel = mountVocabPanel
 exports.nearestIndex = nearestIndex
 exports.nextWorkStatusAnim = nextWorkStatusAnim
 exports.pick = pick

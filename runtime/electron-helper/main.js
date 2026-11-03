@@ -311,10 +311,25 @@ function updatePetState(petId, partial) {
  */
 const windowIgnore = new Map();
 
-/** 翻转整窗穿透的**唯一出口**：状态与 windowIgnore 镜像永远一起更新（穿透期间保留 forward） */
+/**
+ * WS_EX_LAYERED 保底修复（koffi 就绪后由 whenReady 里的 koffi 块替换成真实实现，未就绪时恒返回 false）。
+ *
+ * 背景：透明置顶窗依赖 WS_EX_LAYERED。Electron 的 `setIgnoreMouseEvents(..., {forward:true})`
+ * 会走 DWM 的透明合成路径，实测在反复翻转/显示器热插拔/其它原生代码动过样式后，**偶发把
+ * WS_EX_LAYERED 弄丢** → 表现为整窗变黑块、或点击穿透失灵（"看得见点不着"）。
+ * 这里只做一件事：读 GWL_EXSTYLE，缺 0x80000 就 SetWindowLongW 补回去（幂等、极轻量）。
+ * HWND 取 `win.getNativeWindowHandle()` 的 Buffer（x64 8 字节）→ BigInt，koffi 的 void* 接受 BigInt。
+ */
+let ensureLayered = () => false;
+
+/**
+ * 切换整窗穿透的**唯一出口**：状态与 windowIgnore 镜像永远一起更新（穿透期间保留 forward）
+ */
 function setWindowIgnore(win, ignore) {
   win.setIgnoreMouseEvents(ignore, { forward: true });
   windowIgnore.set(win.id, ignore);
+  // 末尾补回分层样式：上面这次调用正是最容易弄丢 WS_EX_LAYERED 的地方（见 ensureLayered 的说明）
+  ensureLayered(win);
 }
 
 /** 兜底通道的光标轮询间隔（ms，与 issue #55 报告者实测值一致） */
@@ -334,6 +349,25 @@ let pointerFallbackPaused = false;
  * 而渲染端知道（拖拽中 / 菜单开着 / 对话弹窗开着）。所以只由它上报，busy 期间本进程绝不翻回穿透。
  */
 const inputBusy = new Map();
+
+/**
+ * 每窗口「食物袋面板是否打开」标记（win.id → true/false），由渲染端经 `pet:feedbag-open` 上报。
+ *
+ * 为什么主进程要管这件事：面板打开后整窗都保持可交互（渲染端 setInteractive(true)），
+ * 但**窗口之外**（屏幕其他区域）的点击事件根本不会进这个进程 —— 渲染端的 pointerdown 监听收不到。
+ * 所以由兜底轮询顺手检测：面板打开 && 任意鼠标键按下 && 光标在窗口矩形之外 → 推
+ * `pet:close-feedbag` 让渲染端收起面板。只在面板打开期间有动作，平时零开销。
+ */
+const feedBagOpenByWin = new Map();
+
+/**
+ * 鼠标任意键是否**正被按住**：`GetAsyncKeyState(vk) & 0x8000`。
+ *
+ * ⚠️ 必须用 **bit15（当前是否按下）**，不能用 bit0（"自上次查询以来按下过"）：
+ * bit0 受前台线程/查询时序影响、且查询即清，实测症状是"点两次才收起"。
+ * koffi 未就绪（加载失败/非 Windows）时恒为 false → 这条通道自然降级，不影响其他逻辑。
+ */
+let mousePressed = () => false;
 
 /**
  * 桌面宠物列表（[{id,size}]）：宿主经 DSH_PET_PETS 透传（每只宠物一个窗口）。
@@ -478,10 +512,34 @@ function createPetWindows() {
     //
     // 唯一不可自行决定的事：**渲染端正拿着鼠标输入时不得翻回穿透**（见 inputBusy）。
     // 本进程无从判断这件事——光看光标位置与窗口位移分不清"拖拽跟手"和"漫游/抛掷"，所以由渲染端上报。
+    /** 兜底轮询的拍数（用于「每 8 拍巡检一次分层样式」这类降频任务） */
+    let pointerTicks = 0;
     const pointerTimer = setInterval(() => {
-      if (pointerFallbackPaused || win.isDestroyed()) return;
+      if (win.isDestroyed()) return;
+      pointerTicks += 1;
+      // 每 8 拍（≈0.5s）巡检一次分层样式：setIgnoreMouseEvents 走 DWM 透明合成时偶发把
+      // WS_EX_LAYERED 弄丢（整窗变黑块 / 穿透失灵），这里补回去（幂等、极轻量）。
+      // 放在 pause 判定**之前**：冒烟期间暂停的是穿透判定，不该连带停掉样式自愈。
+      if (pointerTicks % 8 === 0) ensureLayered(win);
+      if (pointerFallbackPaused) return;
       const b = win.getBounds();
       if (b.width < 8 || b.height < 8) return; // 尺寸还没落定（renderer 首帧上报前）
+      // 食物袋面板打开时：检测**窗口之外**的鼠标按下 → 让渲染端收起面板。
+      // 「窗口内、面板外」的点击由渲染端的坐标判定兜住，两条通道合起来 = 点哪儿都能收起。
+      // GetAsyncKeyState 用 bit15（当前按住）；一次按下只发一次（发完即清标记，避免按住连发）。
+      if (feedBagOpenByWin.get(win.id) === true && mousePressed()) {
+        const pt = screen.getCursorScreenPoint();
+        const outside = pt.x < b.x || pt.x >= b.x + b.width || pt.y < b.y || pt.y >= b.y + b.height;
+        if (outside) {
+          feedBagOpenByWin.set(win.id, false);
+          try {
+            win.webContents.send('pet:close-feedbag');
+          } catch {
+            /* 窗口正在重载/销毁：忽略 */
+          }
+          return; // 本拍不做穿透判定：面板马上关，由渲染端 onClose 复位
+        }
+      }
       const ignoring = windowIgnore.get(win.id) !== false;
       const next = decideWindowIgnore(b, screen.getCursorScreenPoint(), ignoring, inputBusy.get(win.id) === true);
       if (next !== ignoring) setWindowIgnore(win, next);
@@ -492,6 +550,7 @@ function createPetWindows() {
       lastRequestedBounds.delete(win.id);
       windowIgnore.delete(win.id);
       inputBusy.delete(win.id);
+      feedBagOpenByWin.delete(win.id);
     });
     win
       .loadFile('index.html', {
@@ -742,15 +801,77 @@ app.whenReady().then(() => {
       'bool QueryFullProcessImageNameW(void *hProcess, uint32 dwFlags, _Out_ uint16 *lpExeName, _Inout_ uint32 *lpdwSize)',
     );
     const CloseHandle = kernel32.func('bool CloseHandle(void *hObject)');
+    // 分层样式自愈（GWL_EXSTYLE）+ 鼠标键状态（GetAsyncKeyState）：
+    // 前者只在 setWindowIgnore 之后 / 兜底轮询每 8 拍调用一次，后者只在食物袋面板打开期间读。
+    const GetAsyncKeyState = user32.func('short GetAsyncKeyState(int vKey)');
+    const SetWindowLongW = user32.func('long SetWindowLongW(void *hWnd, int nIndex, long dwNewLong)');
 
     const MONITOR_DEFAULTTONEAREST = 2;
     const GWL_STYLE = -16;
+    /** 扩展样式下标：分层窗口标志 WS_EX_LAYERED 就在这一项里 */
+    const GWL_EXSTYLE = -20;
+    /** 分层窗口：Electron 透明窗必须带它；丢了 → 整窗黑块 / 点击穿透失灵 */
+    const WS_EX_LAYERED = 0x00080000;
+    /** 鼠标左右中键的虚拟键码（GetAsyncKeyState 的入参） */
+    const VK_LBUTTON = 0x01;
+    const VK_RBUTTON = 0x02;
+    const VK_MBUTTON = 0x04;
     const WS_POPUP = 0x80000000;
     /** 可调整大小的厚边框：最大化窗口保留它，真全屏砍掉 */
     const WS_THICKFRAME = 0x00040000;
     /** 系统菜单（左上角图标菜单）：最大化窗口保留它，真全屏砍掉 */
     const WS_SYSMENU = 0x00080000;
     const PROCESS_QUERY_LIMITED_INFORMATION = 0x1000;
+
+    /**
+     * 分层样式自愈：读 GWL_EXSTYLE，没有 WS_EX_LAYERED 就补回去。
+     *
+     * 触发点有三处：`setWindowIgnore()` 末尾（每次翻转穿透后）、兜底轮询每 8 拍、
+     * 以及任何显式调用。幂等 —— 已有 0x80000 时只读一次样式就返回，开销可忽略。
+     * HWND：`win.getNativeWindowHandle()` 返回 Buffer（x64 为 8 字节小端）→ readBigUInt64LE(0)
+     * 得到 BigInt，koffi 的 `void *` 直接接受 BigInt（task 里已确认 void* 出参也是 BigInt）。
+     */
+    let layeredFixLogged = false;
+    ensureLayered = (win) => {
+      try {
+        if (!win || win.isDestroyed()) return false;
+        const buf = win.getNativeWindowHandle();
+        if (!buf || buf.length < 4) return false;
+        const hwnd = buf.length >= 8 ? buf.readBigUInt64LE(0) : BigInt(buf.readUInt32LE(0));
+        const ex = GetWindowLongW(hwnd, GWL_EXSTYLE) >>> 0;
+        if (ex & WS_EX_LAYERED) return true; // 正常：什么都不做（幂等巡检）
+        // `| 0` 把值收成 int32：koffi 的 `long` 形参是有符号 32 位，直接传 >2^31-1 的 Number 会越界报错
+        const prev = SetWindowLongW(hwnd, GWL_EXSTYLE, (ex | WS_EX_LAYERED) | 0) >>> 0;
+        console.error(
+          '[dsh-pet-desktop-helper] WS_EX_LAYERED 丢失 → 已补回（win=' +
+            win.id +
+            ' exstyle=0x' +
+            ex.toString(16) +
+            ' prev=0x' +
+            prev.toString(16) +
+            '）',
+        );
+        return true;
+      } catch (e) {
+        // 句柄竞态/窗口销毁中的异常绝不能冒到 setWindowIgnore（它在热路径上）；只告警一次
+        if (!layeredFixLogged) {
+          layeredFixLogged = true;
+          console.error('[dsh-pet-desktop-helper] ensureLayered 失败（后续静默）：' + (e && e.message ? e.message : String(e)));
+        }
+        return false;
+      }
+    };
+
+    /**
+     * 任意鼠标键是否**正被按住**：`GetAsyncKeyState(vk) & 0x8000`。
+     * bit15 = 当前是否按下（bit0 是"自上次查询以来按下过"，查询即清且受前台线程影响，
+     * 实测会让"面板外点一下收起"变成"点两次才收起"，所以这里刻意只用 bit15）。
+     */
+    mousePressed = () =>
+      ((GetAsyncKeyState(VK_LBUTTON) & 0x8000) |
+        (GetAsyncKeyState(VK_RBUTTON) & 0x8000) |
+        (GetAsyncKeyState(VK_MBUTTON) & 0x8000)) !==
+      0;
 
     /**
      * 「像真全屏吗」——用来把**最大化**窗口排除掉。
@@ -1232,6 +1353,15 @@ app.whenReady().then(() => {
     const win = BrowserWindow.fromWebContents(event.sender);
     if (!win || win.isDestroyed()) return;
     inputBusy.set(win.id, !!busy);
+  });
+
+  // 食物袋面板开/关（渲染端上报）：面板打开期间，兜底轮询会检测「窗口之外」的鼠标按下，
+  // 命中就推 `pet:close-feedbag` 让渲染端收起面板 —— 屏幕其他区域的点击渲染端根本收不到，
+  // 只能由主进程用 GetAsyncKeyState 补上这条通道（窗口内、面板外的点击由渲染端坐标判定兜住）。
+  ipcMain.on('pet:feedbag-open', (event, open) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (!win || win.isDestroyed()) return;
+    feedBagOpenByWin.set(win.id, !!open);
   });
 
   // 右键菜单「打开Harness」：唤起 DSH 桌面端并聚焦其主窗口。
